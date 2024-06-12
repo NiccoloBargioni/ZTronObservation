@@ -1,0 +1,14 @@
+{
+  "pins" : [
+    {
+      "identity" : "swiftgraph",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/davecom/SwiftGraph.git",
+      "state" : {
+        "branch" : "master",
+        "revision" : "7ee1dd9e836713b5bb101517314ce63f1ac3a256"
+      }
+    }
+  ],
+  "version" : 2
+}
