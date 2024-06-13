@@ -10,7 +10,7 @@ internal final class ActiveForest {
         self.activeEdge = .init(repeating: nil, count: co.size())
         self.activeSets = []
         
-        activeSets.reserveCapacity(co.size())
+        // activeSets.reserveCapacity(co.size())
         
         for _ in 0..<co.size() {
             activeSets.append(LinkedList<FibonacciHeapNode>())
@@ -24,17 +24,8 @@ internal final class ActiveForest {
         
         let rhsList = self.activeSets[rhs]
         
-        let initialCountLHS = self.activeSets[lhs].underestimatedCount
-        let initialCountRHS = self.activeSets[rhs].underestimatedCount
-
         self.activeSets[lhs].append(rhsList)
         rhsList.removeAll()
-        
-        #if DEBUG
-        assert(rhsList.count() == 0)
-        assert(self.activeSets[lhs].underestimatedCount == initialCountLHS + initialCountRHS)
-        #endif
-
     }
 
     
@@ -207,24 +198,16 @@ internal final class ActiveForest {
             assert(list != nil)
             assert(vertex.list_it != nil)
             assert(vertex.list_it?.getNode() != nil)
-        #endif
         
-        vertex.list_it?.removeFromOwnerList() // TODO: Sometimes it happens that vertex is not in ownerList anymore. It doesn't affect performance though
-
-        // TODO: Replace with hashmap for performance
-        for activeSet in self.activeSets {
-            activeSet.forEach { node in
-                node.children.removeAll { child in
-                    return child.id == vertex.id
-                }
-            }
-        }
-
+            assert(list?.find { node in
+                return node === vertex
+            } ?? false)
+        #endif
         
         list?.removeAll { edge in
             return edge.id == vertex.id
         }
-                
+        
         if let parent = vertex.parent {
             self.loseChild(parent)
             vertex.parent = nil

@@ -108,7 +108,6 @@ internal final class LinkedList<T> {
     }
     
     
-    // FIXME: A LOOP IS GENERATED WHEN list === self
     /// Append a copy of a LinkedList to the end of the list.
     ///
     ///  - Note: This implementation performs a shallow copy, the referenced objects in the new list are the same as those in `list` parameter.
@@ -117,7 +116,14 @@ internal final class LinkedList<T> {
     /// - Returns: An iterator to the head of the appended list, whose tag is the number of elements of this list before the insertion, minus one.
     ///
     /// - Complexity: O(count + list.count)
-    @discardableResult public func append(_ list: LinkedList) -> LinkedListIndex {
+    @discardableResult public func append(
+        _ list: LinkedList,
+        didCopy: (
+            (_ from: LinkedList<T>,
+             _ to: LinkedList<T>,
+             _ of: T
+            ) -> Void)? = nil
+    ) -> LinkedListIndex {
         let initialCount = self.underestimatedCount
         
         if list === self {
@@ -129,9 +135,9 @@ internal final class LinkedList<T> {
             
             return self.append(clonedList)
         } else {
-
             list.forEach { valueToClone in
                 self.append(valueToClone)
+                didCopy?(list, self, valueToClone)
             }
                         
             return LinkedListIndex(
@@ -226,10 +232,11 @@ internal final class LinkedList<T> {
 
     /// Function to remove all nodes/value from the list
     ///
-    /// - Complexity: O(list.count)
+    /// - Complexity: O(1)
     public func removeAll() {
         guard self.head != nil else { return }
         
+        /*
         var current = self.head
         var previous = self.head
         
@@ -244,7 +251,7 @@ internal final class LinkedList<T> {
         #if DEBUG
         assert(self.count() == 1, "count: \(self.count()) after removing all the elements in the list. 1 expected.")
         #endif
-        
+        */
         head = nil
         tail = nil
                 
@@ -275,13 +282,11 @@ internal final class LinkedList<T> {
     @discardableResult public func remove(node: Node, safe: Bool = false) -> T? {
         if safe {
             if !self.find(node) {
-                /*
                 #if DEBUG
                     logger.warning(
                         "In function \(#function), attempted to remove a node that's not part of the list."
                     )
                 #endif
-                 */
                 return nil
             }
         }
@@ -591,6 +596,12 @@ extension LinkedList: Collection {
         fileprivate var node: LinkedList<T>.LinkedListNode?
         fileprivate let tag: Int
         
+        internal init(owner: LinkedList<T>? = nil, node: LinkedList<T>.LinkedListNode? = nil, tag: Int) {
+            self.owner = owner
+            self.node = node
+            self.tag = tag
+        }
+        
         public static func==(lhs: LinkedListIndex, rhs: LinkedListIndex) -> Bool {
             return (lhs.tag == rhs.tag)
         }
@@ -605,6 +616,10 @@ extension LinkedList: Collection {
         
         internal func getValue() -> T? {
             return self.node?.value
+        }
+        
+        internal mutating func updateOwner(_ to: LinkedList<T>) {
+            self.owner = to
         }
         
         internal func getTag() -> Int {

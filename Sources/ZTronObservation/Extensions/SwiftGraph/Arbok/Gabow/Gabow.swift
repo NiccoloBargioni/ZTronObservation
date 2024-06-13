@@ -24,12 +24,7 @@ internal final class Gabow {
         self.incomingEdges = [[Int]].init()
         self.exitList = [[Int]].init()
         self.passiveSet = [[Int]].init()
-        
-        // TODO: Evaluate performance with and without `reserveCapacity`.
-        incomingEdges.reserveCapacity(verticesCount)
-        exitList.reserveCapacity(verticesCount)
-        passiveSet.reserveCapacity(verticesCount)
-        
+                
         for _ in 0..<verticesCount {
             self.incomingEdges.append([Int].init())
             self.exitList.append([Int].init())
@@ -43,10 +38,7 @@ internal final class Gabow {
         
         self.growthPath = [Int].init()
         self.pathEdges = [Int].init()
-        
-        self.growthPath.reserveCapacity(verticesCount)
-        self.pathEdges.reserveCapacity(verticesCount)
-        
+                
         self.chosen = [Int].init()
         self.forest = [Int].init()
         self.edges = [Gabow.Edge].init()
@@ -78,7 +70,6 @@ internal final class Gabow {
     
     
     internal func run(root: Int) -> Int {
-        
         var answer = 0
         
         var seen = [Int].init(repeating: -1, count: self.verticesCount)
@@ -116,7 +107,6 @@ internal final class Gabow {
                 self.contractCompletePath(root: root)
             }
         }
-        
         return answer
     }
 
