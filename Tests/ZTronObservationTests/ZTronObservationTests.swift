@@ -7366,7 +7366,7 @@ final class ZTronObservationTests: XCTestCase {
         let root = 0
         
         let clock = ContinuousClock()
-        // TODO: In C++ it runs 100 times faster
+        
         let runtime = clock.measure {
             let answer = gabow.run(root: root)
             print("MSA: \(answer)")

@@ -91,7 +91,7 @@ internal final class ActiveForest<T> where T: AdditiveArithmetic & Comparable {
             orderRep[vertex.children.underestimatedCount] = vertex
         }
 
-        activeSets[index].removeAll() // TODO: Increase performance?
+        activeSets[index].removeAll()
                 
         orderRep.forEach { vertex in
             if let vertex = vertex {
