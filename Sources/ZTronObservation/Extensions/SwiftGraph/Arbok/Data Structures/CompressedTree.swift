@@ -1,6 +1,6 @@
 import Foundation
 
-internal final class CompressedTree<T> where T: FloatingPoint {
+internal final class CompressedTree<T> where T: AdditiveArithmetic {
     internal var parent: [Int]
     internal var value: [T]
     
@@ -63,7 +63,7 @@ internal final class CompressedTree<T> where T: FloatingPoint {
         let root = self.find(element)
         
         self.dumpToFile(header: "\(#function), element: \(element), didFindValue")
-        return value[element] + (element != root ? value[root] : 0)
+        return value[element] + (element != root ? value[root] : T.zero)
     }
     
     

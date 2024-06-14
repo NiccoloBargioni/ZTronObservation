@@ -1,15 +1,15 @@
 import Foundation
 
-internal final class Gabow {
+internal final class Gabow<T> where T: AdditiveArithmetic & Comparable & Numeric {
     private let verticesCount: Int
-    private let co: CompressedTree<Float>
+    private let co: CompressedTree<T>
     private var edges: [Gabow.Edge]
     private var incomingEdges: [[Int]]
     private var growthPath: [Int]
     private var pathEdges: [Int]
     private var exitList: [[Int]]
     private var passiveSet: [[Int]]
-    private let activeForest: ActiveForest
+    private let activeForest: ActiveForest<T>
     
     
     // forest over chosen edges as outlined in reconstruction paper
@@ -31,7 +31,7 @@ internal final class Gabow {
             self.passiveSet.append([Int].init())
         }
                  
-        let compressedTree = CompressedTree<Float>(initialSize: verticesCount)
+        let compressedTree = CompressedTree<T>(initialSize: verticesCount)
         
         self.co = compressedTree
         self.activeForest = ActiveForest(co: compressedTree)
@@ -45,12 +45,12 @@ internal final class Gabow {
     }
     
     
-    @inlinable internal func currentWeight(for edge: Edge) -> Int {
-        return edge.weight + co.findValue(edge.to).toInt()
+    @inlinable internal func currentWeight(for edge: Edge) -> T {
+        return edge.weight + co.findValue(edge.to)
     }
     
     // MARK: - INTERNAL METHODS:
-    internal func createEdge(from: Int, to: Int, weight: Int) {
+    internal func createEdge(from: Int, to: Int, weight: T) {
 
         assert(from >= 0 && from < self.verticesCount)
         assert(to >= 0 && to < self.verticesCount)
@@ -64,13 +64,13 @@ internal final class Gabow {
     }
     
     
-    internal func createEdge(_ from: Int, _ to: Int, _ weight: Int) {
+    internal func createEdge(_ from: Int, _ to: Int, _ weight: T) {
         self.createEdge(from: from, to: to, weight: weight)
     }
     
     
-    internal func run(root: Int) -> Int {
-        var answer = 0
+    internal func run(root: Int) -> T {
+        var answer = T.zero
         
         var seen = [Int].init(repeating: -1, count: self.verticesCount)
         
@@ -146,9 +146,9 @@ internal final class Gabow {
             prefix.append(vi)
             self.co.addValue(
                 vi,
-                increment: -self.currentWeight(
+                increment: self.currentWeight(
                     for: edges[ self.chosen[lastPathEdge] ]
-                ).toFloat()
+                )*(-1)
             )
             
             // next iteration in run will find an incoming edge into the here contracted prefix; this edge will be the next in chosen
@@ -359,9 +359,9 @@ internal final class Gabow {
     internal struct Edge {
         internal let from: Int
         internal let to: Int
-        internal let weight: Int
+        internal let weight: T
         
-        internal init(from: Int, to: Int, weight: Int) {
+        internal init(from: Int, to: Int, weight: T) {
             self.from = from
             self.to = to
             self.weight = weight

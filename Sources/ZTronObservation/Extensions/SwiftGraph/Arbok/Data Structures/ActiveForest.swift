@@ -1,11 +1,11 @@
 import Foundation
 
-internal final class ActiveForest {
-    internal let co: CompressedTree<Float>
-    internal var activeEdge: [FibonacciHeapNode?] // for each node the active outgoing edge
-    internal var activeSets: [LinkedList<FibonacciHeapNode>] // for each node on path the active set heap represented by the root list
+internal final class ActiveForest<T> where T: AdditiveArithmetic & Comparable {
+    internal let co: CompressedTree<T>
+    internal var activeEdge: [FibonacciHeapNode<T>?] // for each node the active outgoing edge
+    internal var activeSets: [LinkedList<FibonacciHeapNode<T>>] // for each node on path the active set heap represented by the root list
     
-    init(co: CompressedTree<Float>) {
+    init(co: CompressedTree<T>) {
         self.co = co
         self.activeEdge = .init(repeating: nil, count: co.size())
         self.activeSets = []
@@ -49,7 +49,7 @@ internal final class ActiveForest {
     
     
     internal func getMin(_ index: Int) -> Int {
-        var orderRep = [FibonacciHeapNode?].init()
+        var orderRep = [FibonacciHeapNode<T>?].init()
         
         activeSets[index].forEach { v in
             var vertex = v
@@ -118,7 +118,7 @@ internal final class ActiveForest {
     }
     
     
-    internal func makeActive(from: Int, to: Int, weight: Int, id: Int) {
+    internal func makeActive(from: Int, to: Int, weight: T, id: Int) {
         let fromRep = co.find(from)
         
         if activeEdge[fromRep] == nil {
@@ -131,7 +131,7 @@ internal final class ActiveForest {
         
         #if DEBUG
             assert(
-                weight + self.co.findValue(to).toInt() < self.currentWeight(of: vertex) ||
+                weight + self.co.findValue(to) < self.currentWeight(of: vertex) ||
                 co.find(to) != co.find(vertex.to)
             )
         #endif
@@ -149,12 +149,12 @@ internal final class ActiveForest {
     // MARK: - FIBONACCI HEAP METHODS
     
     /// - Complexity: O(α(n)), where α(n) is the inverse Ackermann function
-    internal func homeHeap(_ vertex: FibonacciHeapNode) -> LinkedList<FibonacciHeapNode> {
+    internal func homeHeap(_ vertex: FibonacciHeapNode<T>) -> LinkedList<FibonacciHeapNode<T>> {
         return activeSets[co.find(vertex.to)]
     }
     
     /// - Complexity: O(α(n)), where α(n) is the inverse Ackermann function
-    internal func moveHome(_ vertex: FibonacciHeapNode) {
+    internal func moveHome(_ vertex: FibonacciHeapNode<T>) {
         let home = self.homeHeap(vertex)
             
         
@@ -170,7 +170,7 @@ internal final class ActiveForest {
         
     
     /// - Complexity: O(α(n))·Cost(`loseChild(vertex.parent)`), where α(n) is the inverse Ackermann function
-    internal func loseChild(_ vertex: FibonacciHeapNode) {
+    internal func loseChild(_ vertex: FibonacciHeapNode<T>) {
         guard let parent = vertex.parent else { return }
         
         if vertex.isLoser {
@@ -190,7 +190,7 @@ internal final class ActiveForest {
     
     /// - Complexity: O( α(n) + n + m ) where `n = vertex.parent?.children.count` and `m = self.homeHeap(vertex).count`, and
     /// α(n) is the inverse Ackermann function
-    internal func removeFromCurrentList(_ vertex: FibonacciHeapNode) {
+    internal func removeFromCurrentList(_ vertex: FibonacciHeapNode<T>) {
         let list = vertex.parent != nil ? vertex.parent?.children : self.homeHeap(vertex)
         
         #if DEBUG
@@ -215,8 +215,8 @@ internal final class ActiveForest {
     }
     
     /// - Complexity: O(α(n)), where α(n) is the inverse Ackermann function
-    internal func currentWeight(of vertex: FibonacciHeapNode) -> Int {
-        let retval = vertex.weight + self.co.findValue(vertex.to).toInt()
+    internal func currentWeight(of vertex: FibonacciHeapNode<T>) -> T {
+        let retval = vertex.weight + self.co.findValue(vertex.to)
         
         return retval
     }
