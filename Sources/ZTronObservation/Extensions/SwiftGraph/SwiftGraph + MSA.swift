@@ -40,7 +40,7 @@ public extension WeightedGraph where V: Hashable, W: Comparable & Numeric  {
     /// - Throws: `MSAError.graphFormatError(reason: String)`, if the graph this method is called on has at least one undirected edge.
     ///
     /// - Complexity: Time: O(E + V·log(V)), Space: O(E+V)
-    func MSA(root: Int) throws -> MSAResult<V, W> {
+    func msa(root: Int) throws -> MSAResult<V, W> {
         assert(root >= 0 && root < self.vertexCount)
 
         var reachable = Set<V>()
@@ -75,38 +75,42 @@ public extension WeightedGraph where V: Hashable, W: Comparable & Numeric  {
                 }
             }
             
-            return try reachableGraph.MSA(root: directMap[self.vertices[root]]!)
+            return try reachableGraph.msaFromConnectedRoot(directMap[self.vertices[root]]!)
         } else {
-            let gabow = Gabow<W>(verticesCount: self.vertexCount)
-            
-            try self.edgeList().forEach { edge in
-                if !edge.directed {
-                    throw MSAError.graphFormatError(reason: "Graph must be directed")
-                }
-                            
-                gabow.createEdge(edge.u, edge.v, edge.weight)
-            }
-            
-            let msa = gabow.run(root: root)
-            let edges = gabow.reconstruct(root: root)
-            
-            let msaGraph = WeightedGraph<V, W>(vertices: self.vertices)
-
-            let allEdges = self.edgeList()
-            edges.forEach { edgeID in
-                assert(edgeID >= 0 && edgeID < allEdges.count)
-                
-                let newEdge = allEdges[edgeID]
-                msaGraph.addEdge(newEdge, directed: true)
-            }
-            
-            assert(msaGraph.edgeList().count == self.vertexCount - 1)
-            
-            return MSAResult(
-                arborescence: msaGraph,
-                minCost: msa
-            )
+            return try msaFromConnectedRoot(root)
         }
+    }
+    
+    private func msaFromConnectedRoot(_ root: Int) throws -> MSAResult<V, W> {
+        let gabow = Gabow<W>(verticesCount: self.vertexCount)
+        
+        try self.edgeList().forEach { edge in
+            if !edge.directed {
+                throw MSAError.graphFormatError(reason: "Graph must be directed")
+            }
+                        
+            gabow.createEdge(edge.u, edge.v, edge.weight)
+        }
+        
+        let msa = gabow.run(root: root)
+        let edges = gabow.reconstruct(root: root)
+        
+        let msaGraph = WeightedGraph<V, W>(vertices: self.vertices)
+
+        let allEdges = self.edgeList()
+        edges.forEach { edgeID in
+            assert(edgeID >= 0 && edgeID < allEdges.count)
+            
+            let newEdge = allEdges[edgeID]
+            msaGraph.addEdge(newEdge, directed: true)
+        }
+        
+        assert(msaGraph.edgeList().count == self.vertexCount - 1)
+        
+        return MSAResult(
+            arborescence: msaGraph,
+            minCost: msa
+        )
     }
     
 }
