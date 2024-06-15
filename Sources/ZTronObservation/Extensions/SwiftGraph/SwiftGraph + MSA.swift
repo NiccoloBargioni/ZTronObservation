@@ -1,14 +1,26 @@
 import SwiftGraph
 
 public struct MSAResult<V,W> where 
-        V: Decodable & Encodable & Equatable,
+        V: Decodable & Encodable & Hashable,
         W: Decodable & Encodable & Equatable & Numeric & Comparable {
     internal let arborescence: WeightedGraph<V, W>
     internal let minCost: W
+    internal let directMap: [V: Int]
+    internal let inverseMap: [Int: Int]
+    internal let _spansWholeGraph: Bool
     
-    init(arborescence: WeightedGraph<V, W>, minCost: W) {
+    init(
+        arborescence: WeightedGraph<V, W>,
+        minCost: W,
+        directMap: [V: Int],
+        inverseMap: [Int: Int],
+        spansWholeGraph: Bool
+    ) {
         self.arborescence = arborescence
         self.minCost = minCost
+        self.directMap = directMap
+        self.inverseMap = inverseMap
+        self._spansWholeGraph = spansWholeGraph
     }
     
     public func getArborescence() -> WeightedGraph<V, W> {
@@ -17,6 +29,32 @@ public struct MSAResult<V,W> where
     
     public func getMinCost() -> W {
         return minCost
+    }
+        
+    public func spansWholeGraph() -> Bool {
+        return self._spansWholeGraph
+    }
+
+    /// Finds the mapped index of vertex (as an index in `arborescence.vertices`) in the minimum spanning tree.
+    ///
+    /// - Parameter vertex: The vertex to find in `arborescence`.
+    ///
+    /// - Returns: The index of such vertex, if it was reachable from the specified root, `nil` otherwise.
+    /// - Complexity: O(1)
+    public func findVertex(_ vertex: V) -> Int? {
+        return directMap[vertex]
+    }
+            
+    
+    /// Finds the index of the specified vertex in the original graph.
+    ///
+    /// - Parameter indexOfVertex: An index to a vertex in `arborescence.vertices`.
+    /// - Returns: If `indexOfVertex` is a valid index in `arborescence.vertices`, it returns the index
+    /// of the vertex `arborescence.vertices[indexOfVertex]` in the original graph. Returns `nil` otherwise.
+    ///
+    /// - Complexity: O(1)
+    public func findOriginalIndexOfVertex(_ indexOfVertex: Int) -> Int? {
+        return inverseMap[indexOfVertex]
     }
 }
 
@@ -45,9 +83,12 @@ public extension WeightedGraph where V: Hashable, W: Comparable & Numeric  {
 
         var reachable = Set<V>()
         var directMap = [V: Int].init()
+        var inverseMap: [Int: Int] = .init()
+        var reachableVertexToIndexMap: [V: Int] = .init()
         
-        let _ = self.bfs(fromIndex: root) { vertex in
+        let _ = self.ivBfs(fromIndex: root) { vertexIndex, vertex in
             reachable.insert(vertex)
+            reachableVertexToIndexMap[vertex] = vertexIndex
             return false
         }
         
@@ -58,9 +99,10 @@ public extension WeightedGraph where V: Hashable, W: Comparable & Numeric  {
 
             reachable.enumerated().forEach { i, vertex in
                 directMap[vertex] = i
+                inverseMap[i] = reachableVertexToIndexMap[vertex]!
                 let _ = reachableGraph.addVertex(vertex)
             }
-            
+                        
             self.edgeList().forEach { edge in
                 if reachable.contains(self.vertices[edge.u]) && reachable.contains(self.vertices[edge.v]) {
                     guard let u = directMap[self.vertices[edge.u]],
@@ -75,13 +117,28 @@ public extension WeightedGraph where V: Hashable, W: Comparable & Numeric  {
                 }
             }
             
-            return try reachableGraph.msaFromConnectedRoot(directMap[self.vertices[root]]!)
+            return try reachableGraph.msaFromConnectedRoot(
+                directMap[self.vertices[root]]!,
+                directMap: directMap,
+                inverseMap: inverseMap,
+                spansWholeGraph: false
+            )
         } else {
-            return try msaFromConnectedRoot(root)
+            return try msaFromConnectedRoot(
+                root, 
+                directMap: directMap,
+                inverseMap: inverseMap,
+                spansWholeGraph: true
+            )
         }
     }
     
-    private func msaFromConnectedRoot(_ root: Int) throws -> MSAResult<V, W> {
+    private func msaFromConnectedRoot(
+        _ root: Int, 
+        directMap: [V: Int],
+        inverseMap: [Int: Int],
+        spansWholeGraph: Bool
+    ) throws -> MSAResult<V, W> {
         let gabow = Gabow<W>(verticesCount: self.vertexCount)
         
         try self.edgeList().forEach { edge in
@@ -109,7 +166,10 @@ public extension WeightedGraph where V: Hashable, W: Comparable & Numeric  {
         
         return MSAResult(
             arborescence: msaGraph,
-            minCost: msa
+            minCost: msa,
+            directMap: directMap,
+            inverseMap: inverseMap,
+            spansWholeGraph: spansWholeGraph
         )
     }
     

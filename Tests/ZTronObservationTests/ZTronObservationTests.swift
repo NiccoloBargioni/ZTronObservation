@@ -7296,13 +7296,17 @@ final class ZTronObservationTests: XCTestCase {
 
         let msa = try originalGraph.msa(root: 3)
         
+        XCTAssertFalse(msa.spansWholeGraph())
         XCTAssertEqual(msa.arborescence.edgeList().count, msa.arborescence.vertexCount - 1)
         
         msa.arborescence.edgeList().forEach { edge in
             print("\(msa.arborescence.vertices[edge.u]) --\(edge.weight)--> \(msa.arborescence.vertices[edge.v])")
         }
         
-        print(msa.getMinCost())
+        for (i, _) in msa.arborescence.vertices.enumerated() {
+            XCTAssertNotNil(msa.findOriginalIndexOfVertex(i))
+            print("\(i) -> \(msa.findOriginalIndexOfVertex(i)!)")
+        }
     }
 }
 
