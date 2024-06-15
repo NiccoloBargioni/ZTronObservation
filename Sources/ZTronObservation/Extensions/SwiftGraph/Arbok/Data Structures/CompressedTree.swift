@@ -7,10 +7,6 @@ internal final class CompressedTree<T> where T: AdditiveArithmetic {
     init(initialSize: Int) {
         self.parent = [Int].init(repeating: -1, count: initialSize)
         self.value = [T].init(repeating: T.zero, count: initialSize)
-        
-        #if DEBUG
-        logging.clearLogFile()
-        #endif
     }
     
     
@@ -21,7 +17,6 @@ internal final class CompressedTree<T> where T: AdditiveArithmetic {
     ///
     ///  - Complexity: O(α(n)), where α(n) is the inverse Ackermann function
     func find(_ element: Int) -> Int {
-        self.dumpToFile(header: "\(#function), element: \(element), willFind")
         assert(element < parent.count)
 
         if parent[element] < 0 {
@@ -35,7 +30,6 @@ internal final class CompressedTree<T> where T: AdditiveArithmetic {
             
             parent[element] = root
             
-            self.dumpToFile(header: "\(#function), element: \(element), didFind")
             return root
         }
     }
@@ -45,9 +39,7 @@ internal final class CompressedTree<T> where T: AdditiveArithmetic {
     /// - Parameter element: The index of the element to increment
     /// - Parameter increment: The delta to increment the value of element of.
     func addValue(_ element: Int, increment: T) {
-        self.dumpToFile(header: "\(#function), element: \(element), increment: \(increment), willAddValue")
         value[find(element)] += increment
-        self.dumpToFile(header: "\(#function), element: \(element), increment: \(increment), didAddValue")
     }
     
     
@@ -58,11 +50,8 @@ internal final class CompressedTree<T> where T: AdditiveArithmetic {
     ///
     /// - Complexity: O(α(n)), where α(n) is the inverse Ackermann function
     func findValue(_ element: Int) -> T {
-        self.dumpToFile(header: "\(#function), element: \(element), willFindValue")
-
         let root = self.find(element)
         
-        self.dumpToFile(header: "\(#function), element: \(element), didFindValue")
         return value[element] + (element != root ? value[root] : T.zero)
     }
     
@@ -75,9 +64,6 @@ internal final class CompressedTree<T> where T: AdditiveArithmetic {
     /// - Returns `false` if `lhs` and `rhs` already belonged to the same set and the union didn't produce any effect, `true` otherwise.
     ///  - Complexity: O(α(n)), where α(n) is the inverse Ackermann function
     @discardableResult func join(_ lhs: Int, _ rhs: Int) -> Bool {
-        #if DEBUG
-        self.dumpToFile(header: "\(#function), lhs: \(lhs), rhs: \(rhs), willJoin")
-        #endif
         var lhsRoot = self.find(lhs)
         var rhsRoot = self.find(rhs)
         
@@ -92,7 +78,6 @@ internal final class CompressedTree<T> where T: AdditiveArithmetic {
             parent[rhsRoot] = lhsRoot
             value[rhsRoot] -= value[lhsRoot]
                         
-            self.dumpToFile(header: "\(#function), lhs: \(lhs), rhs: \(rhs), didJoin")
             return true
         }
     }
@@ -105,10 +90,7 @@ internal final class CompressedTree<T> where T: AdditiveArithmetic {
     ///
     /// - Returns `true` if `lhs` and `rhs` are part of the same set, `false` otherwise.
     func same(_ lhs: Int, _ rhs: Int) -> Bool {
-        self.dumpToFile(header: "\(#function), lhs: \(lhs), rhs: \(rhs), willSame")
-        let retval = find(lhs) == find(rhs)
-        self.dumpToFile(header: "\(#function), lhs: \(lhs), rhs: \(rhs), didSame")
-        return retval
+        return find(lhs) == find(rhs)
     }
     
     
@@ -116,33 +98,11 @@ internal final class CompressedTree<T> where T: AdditiveArithmetic {
     ///
     /// - Parameter element: The index of an element contained in the set to find the size for.
     func size(_ element: Int) -> Int {
-        self.dumpToFile(header: "\(#function), element: \(element), willSize")
-        let retval = -parent[find(element)]
-        self.dumpToFile(header: "\(#function), element: \(element), didSize")
-        return retval
+        return -parent[find(element)]
     }
     
     /// Computes the size of this Disjoint Set Union, that is, the number of subsets.
     func size() -> Int {
         return self.parent.count
-    }
-    
-    private func dumpToFile(header: String) {
-        /*
-        print(header, to: &logging)
-        
-        print("Parent: [", to: &logging)
-        for item in parent {
-            print("  \(item)", to: &logging)
-        }
-        print("]", to: &logging)
-        print("Value: [", to: &logging)
-        
-        for item in value {
-            print("  \(item)", to: &logging)
-        }
-        
-        print("]", to: &logging)
-         */
     }
 }

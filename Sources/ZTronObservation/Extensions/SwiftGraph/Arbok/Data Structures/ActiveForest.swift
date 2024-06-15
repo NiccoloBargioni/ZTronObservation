@@ -220,35 +220,4 @@ internal final class ActiveForest<T> where T: AdditiveArithmetic & Comparable {
         
         return retval
     }
-    
-    /// Dumps to file:
-    ///     activeEdge: [FibonacciHeapNode?] // for each node the active outgoing edge
-    ///     activeSets: [LinkedList<FibonacciHeapNode>] // for each node on path the active set heap represented by the root list
-    /*
-    private func dumpToFile(header: String) {
-        print(header, to: &logging)
-        
-        print("activeEdge: [", to: &logging)
-        for item in activeEdge {
-            if let item = item {
-                item.dumpToFile()
-            } else {
-                print("nil", to: &logging)
-            }
-        }
-        print("]", to: &logging)
-        
-        print("activeSets: [", to: &logging)
-        for i in 0..<activeSets.count {
-            print("\(i): [", to: &logging)
-            
-            activeSets[i].forEach { edge in
-                edge.dumpToFile()
-            }
-            
-            print("]", to: &logging)
-        }
-        print("]", to: &logging)
-    }
-     */
 }
