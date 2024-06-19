@@ -3,7 +3,6 @@ import SwiftGraph
 @testable import ZTronObservation
 
 
-
 final class ZTronFrameWorkTests: XCTestCase {
     func testYadaYada() throws {
         let mediator = BroadcastMediator()
@@ -69,8 +68,8 @@ fileprivate class TopbarComponent: Component {
 
 
 fileprivate class TopbarInteractionsManager: InteractionsManager {
-    var owner: TopbarComponent?
-    var mediator: BroadcastMediator?
+    weak var owner: TopbarComponent?
+    weak var mediator: BroadcastMediator?
     
     required init(owner: TopbarComponent, mediator: BroadcastMediator) {
         self.owner = owner
@@ -130,8 +129,8 @@ fileprivate class GalleryComponent: Component {
 
 
 fileprivate class GalleryInteractionsManager: InteractionsManager {
-    var owner: GalleryComponent?
-    var mediator: BroadcastMediator?
+    weak var owner: GalleryComponent?
+    weak var mediator: BroadcastMediator?
     
     let imagesByGalleries: [String: [String]] = [
         "afterlife": [
