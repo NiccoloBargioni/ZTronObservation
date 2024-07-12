@@ -46,3 +46,23 @@ public extension InteractionsManager {
         self.mediator?.unregister(owner)
     }
 }
+
+
+public protocol MSAInteractionsManager: InteractionsManager where M: MSAMediator {
+    /// Use this method to update your own initial state according to the argument, and signal interest if needed.
+    func peerDiscovered(eventArgs: BroadcastArgs)
+    
+    /// Use this function to update your own state after another component completed its own initial state setup.
+    func peerDidAttach(eventArgs: BroadcastArgs)
+}
+
+
+public extension MSAInteractionsManager {
+    func setup() {
+        guard let mediator = self.mediator,
+                let owner = self.owner else { fatalError() }
+        
+        mediator.register(owner)
+        mediator.componentDidConfigure(eventArgs: BroadcastArgs(source: owner))
+    }
+}

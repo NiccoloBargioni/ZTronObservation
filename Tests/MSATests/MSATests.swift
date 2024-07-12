@@ -3,10 +3,9 @@ import SwiftGraph
 @testable import ZTronObservation
 
 
-
-final class ZTronFrameWorkTests: XCTestCase {
-    func testBroadcastMediator() throws {
-        let mediator = BroadcastMediator()
+final class MSATests: XCTestCase {
+    func testMSAMediator() throws {
+        let mediator = MSAMediator()
         
         let topbar = TopbarComponent()
         let topbarInteractions = TopbarInteractionsManager(owner: topbar, mediator: mediator)
@@ -51,7 +50,7 @@ fileprivate class TopbarComponent: Component {
     private var currentGallery: Int = 0
     
     
-    init(delegate: (any InteractionsManager)? = nil) {
+    init(delegate: (any MSAInteractionsManager)? = nil) {
         self.delegate = delegate
     }
     
@@ -76,11 +75,11 @@ fileprivate class TopbarComponent: Component {
 }
 
 
-fileprivate class TopbarInteractionsManager: InteractionsManager {
+fileprivate class TopbarInteractionsManager: MSAInteractionsManager {
     weak var owner: TopbarComponent?
-    weak var mediator: BroadcastMediator?
+    weak var mediator: MSAMediator?
     
-    required init(owner: TopbarComponent, mediator: BroadcastMediator) {
+    required init(owner: TopbarComponent, mediator: MSAMediator) {
         self.owner = owner
         self.mediator = mediator
     }
@@ -89,15 +88,17 @@ fileprivate class TopbarInteractionsManager: InteractionsManager {
         guard let owner = self.owner else { return }
         print("\(owner.id) received notification")
     }
-    
-    func setup() {
-        guard let owner = self.owner else { return }
-        print("Topbar will register")
-        self.mediator?.register(owner)
-    }
-    
+        
     func willCheckout(args: BroadcastArgs) {
         print("Another component left the subsystem")
+    }
+    
+    func peerDiscovered(eventArgs: ZTronObservation.BroadcastArgs) {  
+
+    }
+    
+    func peerDidAttach(eventArgs: ZTronObservation.BroadcastArgs) {
+        
     }
 }
 
@@ -119,7 +120,7 @@ fileprivate class GalleryComponent: Component {
     }
     
     
-    init(initialGallery: String, delegate: (any InteractionsManager)? = nil) {
+    init(initialGallery: String, delegate: (any MSAInteractionsManager)? = nil) {
         self.id = "gallery \(initialGallery)"
         self.delegate = delegate
     }
@@ -146,9 +147,9 @@ fileprivate class GalleryComponent: Component {
 }
 
 
-fileprivate class GalleryInteractionsManager: InteractionsManager {
+fileprivate class GalleryInteractionsManager: MSAInteractionsManager {
     weak var owner: GalleryComponent?
-    weak var mediator: BroadcastMediator?
+    weak var mediator: MSAMediator?
     
     let imagesByGalleries: [String: [String]] = [
         "afterlife": [
@@ -226,31 +227,41 @@ fileprivate class GalleryInteractionsManager: InteractionsManager {
         ]
     ]
     
-    init(owner: GalleryComponent, mediator: BroadcastMediator) {
+    init(owner: GalleryComponent, mediator: MSAMediator) {
         self.owner = owner
         self.mediator = mediator
     }
     
     func notify(args: BroadcastArgs) {
         guard let owner = self.owner else { return }
-        print("\(owner.id) received notification")
         
         if let topbar = (args.getSource() as? TopbarComponent) {
-            print("\(owner.id) received notification from \(topbar.id)")
             guard let images = self.imagesByGalleries[topbar.getCurrentGalleryID()] else { return }
             
             self.owner?.setImages(to: images)
         }
     }
     
-    func setup() {
-        guard let owner = self.owner else { return }
-        print("\(owner.id) will register")
-        self.mediator?.register(owner)
-    }
-    
     func willCheckout(args: ZTronObservation.BroadcastArgs) {
         print("Another component left the subsystem")
+    }
+    
+    func peerDiscovered(eventArgs: ZTronObservation.BroadcastArgs) {
+        guard let owner = self.owner else { fatalError() }
+        
+        if let component = (eventArgs.getSource() as? TopbarComponent) {
+            self.mediator?.signalInterest(owner, to: component)
+        }
+    }
+    
+    func peerDidAttach(eventArgs: ZTronObservation.BroadcastArgs) {
+        guard let owner = self.owner else { fatalError() }
+        
+        if let topbar = (eventArgs.getSource() as? TopbarComponent) {
+            guard let imagesSet = self.imagesByGalleries[topbar.getCurrentGalleryID()] else { fatalError() }
+            owner.setImages(to: imagesSet)
+        }
+        
     }
 }
 

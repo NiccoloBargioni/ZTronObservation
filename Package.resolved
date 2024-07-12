@@ -3,10 +3,10 @@
     {
       "identity" : "swiftgraph",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/davecom/SwiftGraph.git",
+      "location" : "https://github.com/NickTheFreak97/SwiftGraph",
       "state" : {
-        "branch" : "master",
-        "revision" : "7ee1dd9e836713b5bb101517314ce63f1ac3a256"
+        "branch" : "msa",
+        "revision" : "a00fc9e042d0afff473ef73ea0dc8cd80eca1b28"
       }
     }
   ],

@@ -17,7 +17,7 @@ let package = Package(
     dependencies: [
         // Dependencies declare other packages that this package depends on.
         .package(
-            url: "https://github.com/davecom/SwiftGraph.git", branch: "master"
+            url: "https://github.com/NickTheFreak97/SwiftGraph", branch: "msa"
         )
     ],
     targets: [
@@ -29,8 +29,12 @@ let package = Package(
                 .product(name: "SwiftGraph", package: "SwiftGraph")
             ]
         ),
+        
         .testTarget(
             name: "ZTronObservationTests",
+            dependencies: ["ZTronObservation", .product(name: "SwiftGraph", package: "SwiftGraph")]),
+        .testTarget(
+            name: "MSATests",
             dependencies: ["ZTronObservation", .product(name: "SwiftGraph", package: "SwiftGraph")]),
     ]
 )
