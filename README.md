@@ -14,6 +14,12 @@ A component is unaware of what type of `Mediator` is being used, and all the coo
 
 This way a Component can exist independently of whether or not it is inside a notification subsystem with minimal knowledge and overhead.
 
+
+When a `Component` registers to a subsystem, it is advertised to all the other previously registered `Component`s and every other `Component` in the notification subsystem is announced to the new component. This is translated in the fact that the registering `Component`'s `InteractionManager`'s `.peerDiscovered(_:)` is invoked once for each previously existing component, and each previous existing component's `InteractionManager`'s `.peerDiscovered(_:)` is invoked with the new component as its argument. This way, every existing component discovers the new one and the new one becomes aware of all the other components in the environment. When the new `Component` configured itself and it's in a consistent state, it should invoke its `InteractionManager`'s `.peerDidAttach(_:)` to allow the interested `Component` to align themselves to the initial state of the new `Component`.
+
+Usually `.peerDiscovered(_:)` is the mean through which a `Component` signals its interest (see `Mediator.signalInterest(_:,_:,_:)`) in the notifications from another `Component`.
+
+
 A `Component` receives notifications about state changes via its `.notify(eventArgs:)` function, whose default implementation simply delegates the update to its `.delegate`. The delegate, that implements `.notify(eventArgs:)`, will typically query the type of the source of the update to perform the necessary operations on its `.owner`. For example
 
 ```
@@ -38,6 +44,28 @@ public class TopbarInteractionsManager: InteractionsManager {
   }
 }
 ```
+
+Before a `Component` leaves the notification subsystem, it invokes `willCheckout(_:)` to allow interested components to react to such event.
+
+## Unfortunate side note
+
+The default behavior should be that a Component stores a `delegate` property of type `any InteractionManager`, declared as follows:
+
+```
+var delegate: (any InteractionsManager)? {
+        willSet {
+            guard let delegate = self.delegate else { return }
+            delegate.detach()
+        }
+    
+        didSet {
+            guard let delegate = self.delegate else { return }
+            delegate.setup()
+        }
+    }
+```
+
+Unfortunately, there's no way to currently set this as default behavior, therefore the user of this subsystem will manually have to type or copy/paste this into every new `Component`.
 
 ## Minimum Cost Spanning Arborescence 
 
