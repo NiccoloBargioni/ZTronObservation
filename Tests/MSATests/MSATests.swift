@@ -94,11 +94,13 @@ fileprivate class TopbarInteractionsManager: MSAInteractionsManager {
     }
     
     func peerDiscovered(eventArgs: ZTronObservation.BroadcastArgs) {  
+        print("\(String(describing: Self.self)): \(#function) with arg of type \(String(describing: type(of: eventArgs.getSource())))")
 
     }
     
     func peerDidAttach(eventArgs: ZTronObservation.BroadcastArgs) {
-        
+        print("\(String(describing: Self.self)): \(#function) with arg of type \(String(describing: type(of: eventArgs.getSource())))")
+
     }
 }
 
@@ -247,6 +249,7 @@ fileprivate class GalleryInteractionsManager: MSAInteractionsManager {
     }
     
     func peerDiscovered(eventArgs: ZTronObservation.BroadcastArgs) {
+        print("\(String(describing: Self.self)): \(#function) with arg of type \(String(describing: type(of: eventArgs.getSource())))")
         guard let owner = self.owner else { fatalError() }
         
         if let component = (eventArgs.getSource() as? TopbarComponent) {
@@ -255,6 +258,8 @@ fileprivate class GalleryInteractionsManager: MSAInteractionsManager {
     }
     
     func peerDidAttach(eventArgs: ZTronObservation.BroadcastArgs) {
+        print("\(String(describing: Self.self)): \(#function)")
+
         guard let owner = self.owner else { fatalError() }
         
         if let topbar = (eventArgs.getSource() as? TopbarComponent) {
