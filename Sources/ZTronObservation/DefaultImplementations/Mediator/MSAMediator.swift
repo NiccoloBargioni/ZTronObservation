@@ -221,24 +221,22 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
             fatalError("Either you tried to push a notification down the MSA of a component that's not registered, or wtf.")
         }
         
-        self.componentsMSALock.wait()
 
         self.scheduleMSAUpdateLock.wait()
         if self.scheduleMSAUpdate[sourceID] == true {
             
-        #if DEBUG
-        self.loggerLock.wait()
-        self.logger.log(level: .debug, "ⓘ Updating MSA of component \(sourceID)")
-        self.loggerLock.signal()
-        #endif
+            #if DEBUG
+            self.loggerLock.wait()
+            self.logger.log(level: .debug, "ⓘ Updating MSA of component \(sourceID)")
+            self.loggerLock.signal()
+            #endif
 
-            
+            self.componentsMSALock.wait()
             self.componentsMSA[sourceID] = try! self.componentsGraph.msa(root: vertexID)
             self.scheduleMSAUpdate[sourceID] = false
-            
         }
         self.scheduleMSAUpdateLock.signal()
-        
+
         
         #if DEBUG
         self.loggerLock.wait()
@@ -247,6 +245,7 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         #endif
         
         
+        self.componentsMSALock.wait()
         self.componentsMSA[sourceID]?.forEach { edge in
             guard let componentToNotify = self.componentsIDMap[ self.componentsGraph.vertices[edge.v] ] else {
                 self.componentsMSALock.signal()
@@ -352,38 +351,43 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
             fatalError("Attempted to signal completion of initial configuration for component \(eventArgs.getSource().id), that is not a valid registered component.")
         }
         
+        self.componentsGraphLock.wait()
+        guard let vertexID = self.componentsGraph.indexOfVertex(sourceComponent.id) else {
+            self.componentsGraphLock.signal()
+            
+            #if DEBUG
+            self.loggerLock.wait()
+            self.logger.log(level: .debug, "ⓘ Component \(sourceComponent.id) not registered in graph.")
+            self.loggerLock.signal()
+            
+            fatalError()
+            #endif
+        }
+        self.componentsGraphLock.signal()
+        
         #if DEBUG
         self.loggerLock.wait()
         self.logger.log(level: .debug, "ⓘ Component \(sourceComponent.id) signalled that its configuration is complete.")
         self.loggerLock.signal()
         #endif
 
-        self.componentsMSALock.wait()
 
         self.scheduleMSAUpdateLock.wait()
         if self.scheduleMSAUpdate[sourceComponent.id] == true {
             
-        #if DEBUG
-        self.loggerLock.wait()
-        self.logger.log(level: .debug, "ⓘ Updating MSA of component \(sourceComponent.id), in function \(#function)")
-        self.loggerLock.signal()
-        #endif
+            #if DEBUG
+            self.loggerLock.wait()
+            self.logger.log(level: .debug, "ⓘ Updating MSA of component \(sourceComponent.id)")
+            self.loggerLock.signal()
+            #endif
 
-            
-            self.componentsGraphLock.wait()
-            guard let vertexID = self.componentsGraph.indexOfVertex(sourceComponent.id) else {
-                self.componentsGraphLock.signal()
-                self.componentsIDMapLock.signal()
-                fatalError("Either you tried to push a notification down the MSA of a component that's not registered, or wtf.")
-            }
-            self.componentsGraphLock.signal()
-            
+            self.componentsMSALock.wait()
             self.componentsMSA[sourceComponent.id] = try! self.componentsGraph.msa(root: vertexID)
-            
             self.scheduleMSAUpdate[sourceComponent.id] = false
         }
         self.scheduleMSAUpdateLock.signal()
                 
+        
         
         self.componentsMSA[sourceComponent.id]?.forEach { edge in
             guard let componentToNotify = self.componentsIDMap[ self.componentsGraph.vertices[edge.v] ] else {
