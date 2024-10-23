@@ -335,6 +335,12 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         
         self.scheduleMSAUpdate[from] = true
         
+        #if DEBUG
+        self.loggerLock.wait()
+        self.logger.log(level: .debug, "\(from) MSA marked for update")
+        self.loggerLock.signal()
+        #endif
+        
         self.flatDependencyMap[from]?.forEach { parent in
             if self.scheduleMSAUpdate[parent] == false { // An attempt to break possible loops
                 self.markMSAForUpdates(from: parent)
@@ -387,7 +393,6 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
             self.scheduleMSAUpdate[sourceComponent.id] = false
         }
         self.scheduleMSAUpdateLock.signal()
-                
         
         
         self.componentsMSA[sourceComponent.id]?.forEach { edge in
