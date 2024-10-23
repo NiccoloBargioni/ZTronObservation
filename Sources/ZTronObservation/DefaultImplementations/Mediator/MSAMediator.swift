@@ -235,7 +235,7 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         
         #if DEBUG
         self.loggerLock.wait()
-        self.logger.log(level: .debug, "ⓘ Component \(sourceID) has MSA of size \(self.componentsGraph.edgesForVertex(sourceID)?.count ?? -1)")
+        self.logger.log(level: .debug, "ⓘ Component \(sourceID) has MSA of size \(self.componentsMSA[sourceID]?.count ?? -1)")
         self.loggerLock.signal()
         #endif
         
