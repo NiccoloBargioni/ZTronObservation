@@ -27,6 +27,7 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
     private let isRegisteringComponentLock = DispatchSemaphore(value: 1)
     private let loggerLock = DispatchSemaphore(value: 1)
 
+    public init() {  }
     
     /// Registers a component to the notification subsystem. This includes (in topological order):
     ///
