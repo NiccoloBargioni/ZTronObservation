@@ -223,7 +223,7 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         
 
         self.scheduleMSAUpdateLock.wait()
-        if self.scheduleMSAUpdate[sourceID] == true {
+        // if self.scheduleMSAUpdate[sourceID] == true {
             
             #if DEBUG
             self.loggerLock.wait()
@@ -233,8 +233,9 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
 
             self.componentsMSALock.wait()
             self.componentsMSA[sourceID] = try! self.componentsGraph.msa(root: vertexID)
+            self.componentsMSALock.signal()
             self.scheduleMSAUpdate[sourceID] = false
-        }
+        //}
         self.scheduleMSAUpdateLock.signal()
 
         
