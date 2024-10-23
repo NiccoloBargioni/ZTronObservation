@@ -6,7 +6,7 @@ open class BroadcastArgs {
     private let source: any Component
     private let sourceLock = DispatchSemaphore(value: 1)
     
-    init(source: any Component) {
+    public init(source: any Component) {
         self.source = source
     }
     
