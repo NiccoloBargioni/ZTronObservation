@@ -223,7 +223,7 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         
 
         self.scheduleMSAUpdateLock.wait()
-        // if self.scheduleMSAUpdate[sourceID] == true {
+        if self.scheduleMSAUpdate[sourceID] == true {
             
             #if DEBUG
             self.loggerLock.wait()
@@ -235,7 +235,7 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
             self.componentsMSA[sourceID] = try! self.componentsGraph.msa(root: vertexID)
             self.componentsMSALock.signal()
             self.scheduleMSAUpdate[sourceID] = false
-        //}
+        }
         self.scheduleMSAUpdateLock.signal()
 
         
@@ -309,19 +309,21 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
             self.componentsGraphLock.signal()
         }
         self.isRegisteringComponentLock.signal()
-
-        self.scheduleMSAUpdateLock.wait()
-        self.flatDependencyMapLock.wait()
-        self.markMSAForUpdates(from: dest)
-        self.componentsIDMapLock.signal()
-        self.scheduleMSAUpdateLock.signal()
         
         if self.flatDependencyMap[dest] == nil {
             self.flatDependencyMap[dest] = [String].init()
         }
         
         self.flatDependencyMap[dest]?.append(origin)
+        
         self.flatDependencyMapLock.signal()
+        
+        self.scheduleMSAUpdateLock.wait()
+        self.flatDependencyMapLock.wait()
+        self.markMSAForUpdates(from: dest)
+        self.componentsIDMapLock.signal()
+        self.scheduleMSAUpdateLock.signal()
+
     }
     
     /// Starting from a valid component in the graph, it marks such component for MSA updates, then it marks all the nodes that have
