@@ -2,7 +2,7 @@ import Foundation
 
 /// A protocol identifying a class whose responsibility is to manage updates of state of its owner, according to the state changes of observables this component depends upon.
 /// A class implementing this protocol could (should?) keep track of the last seen state of other components and update its owners' state accordingly.
-public protocol InteractionsManager {
+public protocol InteractionsManager: Sendable {
     associatedtype C: Component
     associatedtype M: Mediator
     

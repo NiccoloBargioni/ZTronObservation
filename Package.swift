@@ -27,6 +27,10 @@ let package = Package(
             name: "ZTronObservation",
             dependencies: [
                 .product(name: "SwiftGraph", package: "SwiftGraph")
+            ],
+            swiftSettings: [
+                /// Xcode 15 & 16. Remove `=targeted` to use the default `complete`. Potentially isolate to a platform to further reduce scope.
+                .enableExperimentalFeature("StrictConcurrency=complete")
             ]
         ),
         

@@ -4,12 +4,19 @@ import Foundation
 /// to the component that originated the notification. Can be extended to include informations about what changed.
 open class BroadcastArgs {
     private let source: any Component
+    private let sourceLock = DispatchSemaphore(value: 1)
     
     init(source: any Component) {
         self.source = source
     }
     
     public final func getSource() -> any Component {
+        self.sourceLock.wait()
+        
+        defer {
+            self.sourceLock.signal()
+        }
+        
         return self.source
     }
 }

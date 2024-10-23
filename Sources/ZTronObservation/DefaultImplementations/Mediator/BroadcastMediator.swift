@@ -4,15 +4,17 @@ import Foundation
 /// registered component (equality between components is tested based on both their `.id` and dynamic types).
 ///
 /// This mediator can't guarantee non-redundancy of the notifications, as it is responsibility of the component to ignore notifications it is not interested in.
-public class BroadcastMediator: Mediator {
+public final class BroadcastMediator: Mediator, @unchecked Sendable {
     public static func == (lhs: BroadcastMediator, rhs: BroadcastMediator) -> Bool {
         return lhs.id == rhs.id
     }
 
-    public var id: String = "broadcast mediator"
+    public let id: String = "broadcast mediator"
     private var listeners: [any Component] = .init()
-    private var registerQueue: DispatchQueue
+    private let registerQueue: DispatchQueue
 
+    private let listenersLock = DispatchSemaphore(value: 1)
+    
     public init() {
         self.registerQueue = DispatchQueue(label: "com.zombietron.\(id).serial", qos: .background)
     }
@@ -23,12 +25,14 @@ public class BroadcastMediator: Mediator {
     public func pushNotification(eventArgs: BroadcastArgs) {
         let changedComponent = eventArgs.getSource()
         
+        self.listenersLock.wait()
         self.listeners.forEach { component in
             if component.id != changedComponent.id
                 && type(of: component) != type(of: changedComponent) {
                 component.delegate?.notify(args: eventArgs)
             }
         }
+        self.listenersLock.signal()
     }
 
     /// Registers a new listener passed as a parameter.
@@ -41,12 +45,14 @@ public class BroadcastMediator: Mediator {
     /// - Complexity: **Time**: O(listeners.count) to find listeners of the same id and type as the new subscriber. **Memory**: O(1)
     public func register(_ listener: any Component) {
         self.registerQueue.sync {
+            self.listenersLock.wait()
             self.listeners.removeAll { subscriber in
                 return listener.id == subscriber.id
                     && type(of: listener) == type(of: subscriber)
             }
 
             self.listeners.append(listener)
+            self.listenersLock.signal()
         }
     }
 
@@ -57,10 +63,12 @@ public class BroadcastMediator: Mediator {
     /// - Complexity: **Time**: O(listeners.count), **Memory**: O(1)
     public func unregister(_ listener: any Component) {
         self.registerQueue.sync {
+            self.listenersLock.wait()
             self.listeners.removeAll { subscriber in
                 return subscriber.id == listener.id 
                     && type(of: subscriber) == type(of: listener)
             }
+            self.listenersLock.signal()
         }
     }
 }

@@ -15,7 +15,3 @@ public extension Component {
         self.delegate?.pushNotification(eventArgs: BroadcastArgs(source: self))
     }
 }
-
-extension Component {
-    
-}

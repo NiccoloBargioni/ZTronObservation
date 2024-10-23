@@ -1,9 +1,10 @@
 import Foundation
 import SwiftGraph
+import os
 
 // TODO: Can add a map from a vertex to its index in componentsGraph.vertices for performance improvements
 // TODO: Consider to change `componentsIDMap` to be of type [ String: Weak<any Component> ] in case of memory leaks
-public class MSAMediator: Mediator {
+public final class MSAMediator: Mediator, Sendable {
     typealias E = WeightedGraph<String, Float>.E
     
     private var componentsGraph = WeightedGraph<String, Float>()
@@ -13,6 +14,19 @@ public class MSAMediator: Mediator {
     // A map that associates `key` component to all the other components that have an imbound edge coming from `key`
     private var flatDependencyMap = [String: [String]].init()
     private var scheduleMSAUpdate = [String: Bool].init()
+    private var isRegisteringComponent: Bool = false
+    
+    private let logger = Logger(subsystem: "ZTronObservation", category: "MSAMediator")
+    
+    
+    private let componentsGraphLock = DispatchSemaphore(value: 1)
+    private let componentsMSALock = DispatchSemaphore(value: 1)
+    private let componentsIDMapLock = DispatchSemaphore(value: 1)
+    private let flatDependencyMapLock = DispatchSemaphore(value: 1)
+    private let scheduleMSAUpdateLock = DispatchSemaphore(value: 1)
+    private let isRegisteringComponentLock = DispatchSemaphore(value: 1)
+    private let loggerLock = DispatchSemaphore(value: 1)
+
     
     /// Registers a component to the notification subsystem. This includes (in topological order):
     ///
@@ -23,21 +37,68 @@ public class MSAMediator: Mediator {
     /// - Add the component ID to the components graph.
     /// - Invoking `peerDiscovered` on every other component in the graph.
     ///
+    /// - Note: The new component's `peerDiscovered(_:)` should not invoke any method from Mediator other than `signalInterest(_:,_:,_:)`. Otherwise, a deadlock could result.
+    ///
     /// - Complexity: time: O(V)
     public func register(_ component: any Component) {
-        print("\(component.id) will register")
+        self.isRegisteringComponentLock.wait()
+        self.isRegisteringComponent = true
+        self.isRegisteringComponentLock.signal()
+        
+        self.componentsIDMapLock.wait()
+        self.componentsMSALock.wait()
+        self.flatDependencyMapLock.wait()
+        self.scheduleMSAUpdateLock.wait()
         
         self.componentsIDMap[component.id] = component
         self.componentsMSA[component.id] = [E].init()
         self.flatDependencyMap[component.id] = [String].init()
         self.scheduleMSAUpdate[component.id] = true
         
-        let _ = self.componentsGraph.addVertex(component.id)
+        self.componentsIDMapLock.signal()
+        self.scheduleMSAUpdateLock.signal()
+        self.flatDependencyMapLock.signal()
+        self.componentsMSALock.signal()
 
+        
+        self.componentsGraphLock.wait()
+        let _ = self.componentsGraph.addVertex(component.id)
+        self.componentsGraphLock.signal()
+
+        self.componentsGraphLock.wait()
+        
+        defer {
+            self.componentsGraphLock.signal()
+        }
+        
         self.componentsGraph.forEach { componentID in
-            guard let other = self.componentsIDMap[componentID] else { fatalError() }
-            guard let otherDelegate = (other.delegate as? (any MSAInteractionsManager)) else { fatalError() }
-            guard let delegate = (component.delegate as? (any MSAInteractionsManager)) else { fatalError() }
+            self.componentsIDMapLock.wait()
+            guard let other = self.componentsIDMap[componentID] else {
+                self.componentsIDMapLock.signal()
+                
+                self.isRegisteringComponentLock.wait()
+                self.isRegisteringComponent = false
+                self.isRegisteringComponentLock.signal()
+                
+                fatalError("Component \(componentID) has no associated components in MSAMediator map.")
+            }
+            self.componentsIDMapLock.signal()
+            
+
+            guard let otherDelegate = (other.delegate as? (any MSAInteractionsManager)) else {
+                self.isRegisteringComponentLock.wait()
+                self.isRegisteringComponent = false
+                self.isRegisteringComponentLock.signal()
+                fatalError("Component \(componentID) is expected to have delegate of type any \(String(describing: Self.self))")
+            }
+            
+            guard let delegate = (component.delegate as? (any MSAInteractionsManager)) else {
+                self.isRegisteringComponentLock.wait()
+                self.isRegisteringComponent = false
+                self.isRegisteringComponentLock.signal()
+
+                fatalError("New component \(component.id) is expected to have delegate of type any \(String(describing: Self.self))")
+            }
             
             if other.id != component.id {
                 otherDelegate.peerDiscovered(eventArgs: BroadcastArgs(source: component))
@@ -45,8 +106,15 @@ public class MSAMediator: Mediator {
             }
         }
         
+        #if DEBUG
+        self.loggerLock.wait()
+        self.logger.log(level: .debug, "✓ Component \(component.id) registered")
+        self.loggerLock.signal()
+        #endif
         
-        print("\(component.id) did register")
+        self.isRegisteringComponentLock.wait()
+        self.isRegisteringComponent = false
+        self.isRegisteringComponentLock.signal()
     }
     
     
@@ -64,13 +132,18 @@ public class MSAMediator: Mediator {
     /// - Removes the `component` from the MSA updates schedule.
     ///
     /// - Note: This implementation makes self-use of `markMSAForUpdates`
+    /// - Note: The registered component's`willCheckout(_:)` must not invoke any mediator's method, otherwise a deadlock will result.
     ///
     /// - Complexity: time: O(V²), to find the component index and remove it from the dependency lists. Called unfrequently and worst case is not common.
     public func unregister(_ component: any Component) {
+        
+        self.componentsIDMapLock.wait()
         guard self.componentsIDMap[component.id] != nil else {
+            componentsIDMapLock.signal()
             fatalError("Attempted to register \(component.id), that isn't a registered component.")
         }
         
+        self.flatDependencyMapLock.wait()
         if let dependencies = self.flatDependencyMap[component.id] {
             dependencies.forEach { dependency in
                 if self.componentsIDMap[dependency]?.id != component.id {
@@ -79,8 +152,11 @@ public class MSAMediator: Mediator {
             }
         }
         
+        self.scheduleMSAUpdateLock.wait()
         self.markMSAForUpdates(from: component.id)
 
+        
+        self.componentsGraphLock.wait()
         componentsGraph.edgesForVertex(component.id)?.forEach { edge in
             let dest = self.componentsGraph.vertices[edge.v]
             
@@ -90,12 +166,26 @@ public class MSAMediator: Mediator {
         }
 
         self.componentsGraph.removeVertex(component.id)
-        self.componentsIDMap[component.id] = nil
-        self.componentsMSA[component.id] = nil
+        self.componentsGraphLock.signal()
         
+        self.componentsIDMap[component.id] = nil
+        self.componentsIDMapLock.signal()
+        
+        self.componentsMSALock.wait()
+        self.componentsMSA[component.id] = nil
+        self.componentsMSALock.signal()
         
         self.flatDependencyMap[component.id] = nil
+        self.flatDependencyMapLock.signal()
+        
         self.scheduleMSAUpdate[component.id] = nil
+        self.scheduleMSAUpdateLock.signal()
+        
+        #if DEBUG
+        self.loggerLock.wait()
+        self.logger.log(level: .debug, "✓ Component \(component.id) unregistered")
+        self.loggerLock.signal()
+        #endif
     }
     
     
@@ -109,27 +199,61 @@ public class MSAMediator: Mediator {
     ///
     /// - Complexity: Time: O(E + V·log(V)), Space: O(E+V). Though in most cases time is O(V)
     public func pushNotification(eventArgs: BroadcastArgs) {
-        print("\(eventArgs.getSource().id) will push notification")
         let sourceID = eventArgs.getSource().id
+        
+        #if DEBUG
+        self.loggerLock.wait()
+        logger.log(level: .debug, "ⓘ Component \(sourceID) sending notification down its MSA")
+        self.loggerLock.signal()
+        #endif
+        
+        self.componentsIDMapLock.wait()
+        self.componentsGraphLock.wait()
+        
+        defer {
+            self.componentsIDMapLock.signal()
+            self.componentsGraphLock.signal()
+        }
         
         guard self.componentsIDMap[sourceID] != nil,
               let vertexID = self.componentsGraph.indexOfVertex(sourceID) else {
             fatalError("Either you tried to push a notification down the MSA of a component that's not registered, or wtf.")
         }
         
+        self.componentsMSALock.wait()
+
+        self.scheduleMSAUpdateLock.wait()
         if self.scheduleMSAUpdate[sourceID] == true {
+            
             self.componentsMSA[sourceID] = try! self.componentsGraph.msa(root: vertexID)
-                
             self.scheduleMSAUpdate[sourceID] = false
+            
         }
+        self.scheduleMSAUpdateLock.signal()
         
-        print("Component \(sourceID) has MSA of size \(self.componentsGraph.edgesForVertex(sourceID)?.count ?? -1)")
+        
+        #if DEBUG
+        self.loggerLock.wait()
+        self.logger.log(level: .debug, "ⓘ Component \(sourceID) has MSA of size \(self.componentsGraph.edgesForVertex(sourceID)?.count ?? -1)")
+        self.loggerLock.signal()
+        #endif
+        
         
         self.componentsMSA[sourceID]?.forEach { edge in
-            guard let componentToNotify = self.componentsIDMap[ self.componentsGraph.vertices[edge.v] ] else { fatalError() }
-            print("Sending notification from \(eventArgs.getSource().id) to \(componentToNotify.id)")
+            guard let componentToNotify = self.componentsIDMap[ self.componentsGraph.vertices[edge.v] ] else {
+                self.componentsMSALock.signal()
+                fatalError("Component \(self.componentsGraph.vertices[edge.v]) is not a valid component.")
+            }
+            
+            #if DEBUG
+            self.loggerLock.wait()
+            self.logger.log(level: .debug, "ⓘ Sending notification \(sourceID) → \(componentToNotify.id)")
+            self.loggerLock.signal()
+            #endif
+            
             componentToNotify.delegate?.notify(args: eventArgs)
         }
+        self.componentsMSALock.signal()
     }
     
 
@@ -147,28 +271,49 @@ public class MSAMediator: Mediator {
     ///
     /// - Complexity: time: O(V), to recursively mark MSA of parents as needing update.
     public func signalInterest(_ asker: any Component, to: any Component, priority: Float = 1.0) {
+        print(#function)
+        self.componentsIDMapLock.wait()
         guard let dest = self.componentsIDMap[ asker.id ]?.id,
               let origin = self.componentsIDMap[ to.id ]?.id else {
+            self.componentsIDMapLock.signal()
+            
             fatalError("Either \(asker.id) or \(to.id) are not registered in the notification subsystem")
         }
         
-        print("Attaching \(origin) --> \(dest)")
+        #if DEBUG
+        self.loggerLock.wait()
+        self.logger.log(level: .debug, "ⓘ Attaching \(origin) → \(dest)")
+        self.loggerLock.signal()
+        #endif
 
-        
+        self.isRegisteringComponentLock.wait()
+        if !self.isRegisteringComponent {
+            self.componentsGraphLock.wait()
+        }
+
         self.componentsGraph.addEdge(
             from: origin,
             to: dest,
             weight: priority,
             directed: true
         )
-        
+        if !self.isRegisteringComponent {
+            self.componentsGraphLock.signal()
+        }
+        self.isRegisteringComponentLock.signal()
+
+        self.scheduleMSAUpdateLock.wait()
+        self.flatDependencyMapLock.wait()
         self.markMSAForUpdates(from: dest)
+        self.componentsIDMapLock.signal()
+        self.scheduleMSAUpdateLock.signal()
         
         if self.flatDependencyMap[dest] == nil {
             self.flatDependencyMap[dest] = [String].init()
         }
         
         self.flatDependencyMap[dest]?.append(origin)
+        self.flatDependencyMapLock.signal()
     }
     
     /// Starting from a valid component in the graph, it marks such component for MSA updates, then it marks all the nodes that have
@@ -193,14 +338,59 @@ public class MSAMediator: Mediator {
     /// When an interaction manager completes the setup procedure, it should invoke this method to allow all the components that are interested in it to
     /// update themselves based on the consisted, ready for updates, ready state of the caller.
     internal func componentDidConfigure(eventArgs: BroadcastArgs) {
-        print("\(eventArgs.getSource().id) did configure")
-        self.componentsIDMap.keys.forEach { componentID in
-            if componentID != eventArgs.getSource().id {
-                guard let theComponent = self.componentsIDMap[componentID] else { fatalError() }
-                guard let theDelegate = (theComponent.delegate as? any MSAInteractionsManager) else { fatalError() }
-                
-                theDelegate.peerDidAttach(eventArgs: BroadcastArgs(source: theComponent))
-            }
+        self.componentsIDMapLock.wait()
+        guard let sourceComponent = self.componentsIDMap[eventArgs.getSource().id] else {
+            self.componentsIDMapLock.signal()
+            fatalError("Attempted to signal completion of initial configuration for component \(eventArgs.getSource().id), that is not a valid registered component.")
         }
+        
+        #if DEBUG
+        self.loggerLock.wait()
+        self.logger.log(level: .debug, "ⓘ Component \(sourceComponent.id) signalled that its configuration is complete.")
+        self.loggerLock.signal()
+        #endif
+
+        self.componentsMSALock.wait()
+
+        self.scheduleMSAUpdateLock.wait()
+        if self.scheduleMSAUpdate[sourceComponent.id] == true {
+            
+            self.componentsGraphLock.wait()
+            guard let vertexID = self.componentsGraph.indexOfVertex(sourceComponent.id) else {
+                self.componentsGraphLock.signal()
+                self.componentsIDMapLock.signal()
+                fatalError("Either you tried to push a notification down the MSA of a component that's not registered, or wtf.")
+            }
+            self.componentsGraphLock.signal()
+            
+            self.componentsMSA[sourceComponent.id] = try! self.componentsGraph.msa(root: vertexID)
+            
+            self.scheduleMSAUpdate[sourceComponent.id] = false
+        }
+        self.scheduleMSAUpdateLock.signal()
+                
+        
+        self.componentsMSA[sourceComponent.id]?.forEach { edge in
+            guard let componentToNotify = self.componentsIDMap[ self.componentsGraph.vertices[edge.v] ] else {
+                self.componentsMSALock.signal()
+                fatalError("Component \(self.componentsGraph.vertices[edge.v]) is not a valid component.")
+            }
+            
+            #if DEBUG
+            self.loggerLock.wait()
+            self.logger.log(level: .debug, "ⓘ Sending notification \(sourceComponent.id) → \(componentToNotify.id)")
+            self.loggerLock.signal()
+            #endif
+            
+            guard let componentToNotifyDelegate = componentToNotify.delegate as? any MSAInteractionsManager else {
+                self.componentsMSALock.signal()
+                fatalError("Component to notify with id \(componentToNotify.id) was expected to have delegate of type any \(String(describing: Self.self))")
+            }
+            
+            
+            componentToNotifyDelegate.peerDidAttach(eventArgs: eventArgs)
+        }
+        self.componentsIDMapLock.signal()
+        self.componentsMSALock.signal()
     }
 }

@@ -7,13 +7,14 @@ final class MSATests: XCTestCase {
     func testMSAMediator() throws {
         let mediator = MSAMediator()
         
-        let topbar = TopbarComponent()
-        let topbarInteractions = TopbarInteractionsManager(owner: topbar, mediator: mediator)
-        topbar.delegate = topbarInteractions
-        
         let gallery = GalleryComponent(initialGallery: "cosmic way")
         let galleryInteractions = GalleryInteractionsManager(owner: gallery, mediator: mediator)
         gallery.delegate = galleryInteractions
+
+        
+        let topbar = TopbarComponent()
+        let topbarInteractions = TopbarInteractionsManager(owner: topbar, mediator: mediator)
+        topbar.delegate = topbarInteractions
         
         topbar.setCurrentGallery(to: 3)
         

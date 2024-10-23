@@ -3,7 +3,7 @@ import Foundation
 /// Use this protocol to define an object that stores references to all the components and handles dispatching notifications between them.
 ///
 /// - Note: The `.mediator` property of `delegate` must be the same exact object for all the components that need to part-take in the notification subsystem.
-public protocol Mediator {
+public protocol Mediator: Sendable {
     
     /// Use this function to store a reference to the component to later use, and perform initial configurations if needed.
     func register(_: any Component)
