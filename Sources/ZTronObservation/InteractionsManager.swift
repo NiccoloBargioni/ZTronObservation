@@ -3,11 +3,6 @@ import Foundation
 /// A protocol identifying a class whose responsibility is to manage updates of state of its owner, according to the state changes of observables this component depends upon.
 /// A class implementing this protocol could (should?) keep track of the last seen state of other components and update its owners' state accordingly.
 public protocol InteractionsManager: Sendable {
-    associatedtype C: Component
-    associatedtype M: Mediator
-    
-    var owner: C? { get }
-    var mediator: M? { get }
     
     /// Allows a class implementing this protocol to handle state changes of components that `owner` depends upon.
     ///
@@ -33,22 +28,30 @@ public protocol InteractionsManager: Sendable {
     
     /// Use this method to detach `owner` from the notification system.
     func detach()
+    
+    
+    /// Give access to the owner of this manager
+    func getOwner() -> (any Component)?
+    
+    
+    /// Give access to the mediator of this manager
+    func getMediator() -> (any Mediator)?
 }
 
 public extension InteractionsManager {
     func pushNotification(eventArgs: BroadcastArgs) {
-        self.mediator?.pushNotification(eventArgs: eventArgs)
+        self.getMediator()?.pushNotification(eventArgs: eventArgs)
     }
     
     func detach() {
-        guard let owner = self.owner else { return }
-        print("\(owner.id) detaching")
-        self.mediator?.unregister(owner)
+        guard let owner = self.getOwner() else { return }
+
+        self.getMediator()?.unregister(owner)
     }
 }
 
 
-public protocol MSAInteractionsManager: InteractionsManager where M: MSAMediator {
+public protocol MSAInteractionsManager: InteractionsManager {
     /// Use this method to update your own initial state according to the argument, and signal interest if needed.
     func peerDiscovered(eventArgs: BroadcastArgs)
     
@@ -59,8 +62,8 @@ public protocol MSAInteractionsManager: InteractionsManager where M: MSAMediator
 
 public extension MSAInteractionsManager {
     func setup() {
-        guard let mediator = self.mediator,
-                let owner = self.owner else { fatalError() }
+        guard let mediator = self.getMediator() as? MSAMediator,
+              let owner = self.getOwner() else { fatalError() }
         
         mediator.register(owner)
         mediator.componentDidConfigure(eventArgs: BroadcastArgs(source: owner))

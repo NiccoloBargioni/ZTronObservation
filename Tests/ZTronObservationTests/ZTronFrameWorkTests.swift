@@ -73,12 +73,28 @@ fileprivate class TopbarComponent: Component {
     deinit {
         self.delegate?.detach()
     }
+    
+    func getDelegate() -> (any InteractionsManager)? {
+        return self.delegate
+    }
+    
+    func setDelegate(_ interactionsManager: (any ZTronObservation.InteractionsManager)?) {
+        if let delegate = self.delegate {
+            delegate.detach()
+        }
+        
+        self.delegate = interactionsManager
+        
+        if let interactionsManager = interactionsManager {
+            interactionsManager.setup()
+        }
+    }
 }
 
 
-fileprivate class TopbarInteractionsManager: InteractionsManager {
-    weak var owner: TopbarComponent?
-    weak var mediator: BroadcastMediator?
+fileprivate final class TopbarInteractionsManager: InteractionsManager, @unchecked Sendable {
+    weak private var owner: TopbarComponent?
+    weak private var mediator: BroadcastMediator?
     
     required init(owner: TopbarComponent, mediator: BroadcastMediator) {
         self.owner = owner
@@ -98,6 +114,14 @@ fileprivate class TopbarInteractionsManager: InteractionsManager {
     
     func willCheckout(args: BroadcastArgs) {
         print("Another component left the subsystem")
+    }
+    
+    func getOwner() -> (any ZTronObservation.Component)? {
+        return self.owner
+    }
+    
+    func getMediator() -> (any ZTronObservation.Mediator)? {
+        return self.mediator
     }
 }
 
@@ -143,12 +167,28 @@ fileprivate class GalleryComponent: Component {
     deinit {
         self.delegate?.detach()
     }
+    
+    func setDelegate(_ interactionsManager: (any ZTronObservation.InteractionsManager)?) {
+        if let delegate = self.delegate {
+            delegate.detach()
+        }
+        
+        self.delegate = interactionsManager
+        
+        if let interactionsManager = interactionsManager {
+            interactionsManager.setup()
+        }
+    }
+    
+    func getDelegate() -> (any InteractionsManager)? {
+        return self.delegate
+    }
 }
 
 
-fileprivate class GalleryInteractionsManager: InteractionsManager {
-    weak var owner: GalleryComponent?
-    weak var mediator: BroadcastMediator?
+fileprivate class GalleryInteractionsManager: InteractionsManager, @unchecked Sendable {
+    weak private var owner: GalleryComponent?
+    weak private var mediator: BroadcastMediator?
     
     let imagesByGalleries: [String: [String]] = [
         "afterlife": [
@@ -251,6 +291,14 @@ fileprivate class GalleryInteractionsManager: InteractionsManager {
     
     func willCheckout(args: ZTronObservation.BroadcastArgs) {
         print("Another component left the subsystem")
+    }
+    
+    func getOwner() -> (any ZTronObservation.Component)? {
+        return self.owner
+    }
+    
+    func getMediator() -> (any ZTronObservation.Mediator)? {
+        return self.mediator
     }
 }
 

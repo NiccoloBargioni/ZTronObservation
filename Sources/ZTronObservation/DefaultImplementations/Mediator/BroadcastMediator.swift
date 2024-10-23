@@ -29,7 +29,7 @@ public final class BroadcastMediator: Mediator, @unchecked Sendable {
         self.listeners.forEach { component in
             if component.id != changedComponent.id
                 && type(of: component) != type(of: changedComponent) {
-                component.delegate?.notify(args: eventArgs)
+                component.getDelegate()?.notify(args: eventArgs)
             }
         }
         self.listenersLock.signal()

@@ -9,17 +9,17 @@ final class MSATests: XCTestCase {
         
         let gallery = GalleryComponent(initialGallery: "cosmic way")
         let galleryInteractions = GalleryInteractionsManager(owner: gallery, mediator: mediator)
-        gallery.delegate = galleryInteractions
+        gallery.setDelegate(galleryInteractions)
 
         
         let topbar = TopbarComponent()
         let topbarInteractions = TopbarInteractionsManager(owner: topbar, mediator: mediator)
-        topbar.delegate = topbarInteractions
+        topbar.setDelegate(topbarInteractions)
         
         topbar.setCurrentGallery(to: 3)
         
-        topbar.delegate?.detach()
-        gallery.delegate?.detach()
+        topbar.getDelegate()?.detach()
+        gallery.getDelegate()?.detach()
     }
 }
 
@@ -35,17 +35,7 @@ fileprivate class TopbarComponent: Component {
     }
     
     var id: String = "topbar"
-    var delegate: (any InteractionsManager)? {
-        willSet {
-            guard let delegate = self.delegate else { return }
-            delegate.detach()
-        }
-    
-        didSet {
-            guard let delegate = self.delegate else { return }
-            delegate.setup()
-        }
-    }
+    private var delegate: (any InteractionsManager)?
     
     private let subgalleries = ["cosmic way", "journey into space", "astrocade", "polar peak", "underground", "kepler", "astrocade"]
     private var currentGallery: Int = 0
@@ -70,15 +60,31 @@ fileprivate class TopbarComponent: Component {
         self.delegate?.pushNotification(eventArgs: BroadcastArgs(source: self))
     }
     
+    func getDelegate() -> (any ZTronObservation.InteractionsManager)? {
+        return self.delegate
+    }
+    
+    func setDelegate(_ interactionsManager: (any ZTronObservation.InteractionsManager)?) {
+        if let delegate = self.delegate {
+            delegate.detach()
+        }
+        
+        self.delegate = interactionsManager
+        
+        if let interactionsManager = interactionsManager {
+            interactionsManager.setup()
+        }
+    }
+    
     deinit {
         self.delegate?.detach()
     }
 }
 
 
-fileprivate class TopbarInteractionsManager: MSAInteractionsManager {
-    weak var owner: TopbarComponent?
-    weak var mediator: MSAMediator?
+fileprivate final class TopbarInteractionsManager: MSAInteractionsManager, @unchecked Sendable {
+    weak private var owner: TopbarComponent?
+    weak private var mediator: MSAMediator?
     
     required init(owner: TopbarComponent, mediator: MSAMediator) {
         self.owner = owner
@@ -101,7 +107,14 @@ fileprivate class TopbarInteractionsManager: MSAInteractionsManager {
     
     func peerDidAttach(eventArgs: ZTronObservation.BroadcastArgs) {
         print("\(String(describing: Self.self)): \(#function) with arg of type \(String(describing: type(of: eventArgs.getSource())))")
-
+    }
+    
+    func getOwner() -> (any ZTronObservation.Component)? {
+        return self.owner
+    }
+    
+    func getMediator() -> (any ZTronObservation.Mediator)? {
+        return self.mediator
     }
 }
 
@@ -110,17 +123,7 @@ fileprivate class TopbarInteractionsManager: MSAInteractionsManager {
 fileprivate class GalleryComponent: Component {
     fileprivate let id: String
     fileprivate var imagesInThisGallery = [String].init()
-    fileprivate var delegate: (any InteractionsManager)? {
-        willSet {
-            guard let delegate = self.delegate else { return }
-            delegate.detach()
-        }
-    
-        didSet {
-            guard let delegate = self.delegate else { return }
-            delegate.setup()
-        }
-    }
+    private var delegate: (any InteractionsManager)?
     
     
     init(initialGallery: String, delegate: (any MSAInteractionsManager)? = nil) {
@@ -147,12 +150,28 @@ fileprivate class GalleryComponent: Component {
     deinit {
         self.delegate?.detach()
     }
+    
+    func getDelegate() -> (any InteractionsManager)? {
+        return self.delegate
+    }
+    
+    func setDelegate(_ interactionsManager: (any ZTronObservation.InteractionsManager)?) {
+        if let delegate = self.delegate {
+            delegate.detach()
+        }
+        
+        self.delegate = interactionsManager
+        
+        if let interactionsManager = interactionsManager {
+            interactionsManager.setup()
+        }
+    }
 }
 
 
-fileprivate class GalleryInteractionsManager: MSAInteractionsManager {
-    weak var owner: GalleryComponent?
-    weak var mediator: MSAMediator?
+fileprivate final class GalleryInteractionsManager: MSAInteractionsManager, @unchecked Sendable {
+    weak private var owner: GalleryComponent?
+    weak private var mediator: MSAMediator?
     
     let imagesByGalleries: [String: [String]] = [
         "afterlife": [
@@ -236,7 +255,7 @@ fileprivate class GalleryInteractionsManager: MSAInteractionsManager {
     }
     
     func notify(args: BroadcastArgs) {
-        guard let owner = self.owner else { return }
+        guard self.owner != nil else { return }
         
         if let topbar = (args.getSource() as? TopbarComponent) {
             guard let images = self.imagesByGalleries[topbar.getCurrentGalleryID()] else { return }
@@ -268,6 +287,14 @@ fileprivate class GalleryInteractionsManager: MSAInteractionsManager {
             owner.setImages(to: imagesSet)
         }
         
+    }
+    
+    func getOwner() -> (any ZTronObservation.Component)? {
+        return self.owner
+    }
+    
+    func getMediator() -> (any ZTronObservation.Mediator)? {
+        return self.mediator
     }
 }
 

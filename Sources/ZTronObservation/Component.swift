@@ -6,12 +6,14 @@ import Foundation
 /// in the system. For instance a `TopbarComponent: Component` could be identified by a `topbar` string.
 public protocol Component: Identifiable, Hashable {
     var id: String { get }
-    var delegate: (any InteractionsManager)? { get set }
+
+    func getDelegate() -> (any InteractionsManager)?
+    func setDelegate(_ interactionsManager: (any InteractionsManager)?)
 }
 
 public extension Component {
     /// Use this function to resolve state updates of components this component depends upon. Just use delegation as default behavior.
     func pushNotification() {
-        self.delegate?.pushNotification(eventArgs: BroadcastArgs(source: self))
+        self.getDelegate()?.pushNotification(eventArgs: BroadcastArgs(source: self))
     }
 }

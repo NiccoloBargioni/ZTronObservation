@@ -4,7 +4,7 @@ import os
 
 // TODO: Can add a map from a vertex to its index in componentsGraph.vertices for performance improvements
 // TODO: Consider to change `componentsIDMap` to be of type [ String: Weak<any Component> ] in case of memory leaks
-public final class MSAMediator: Mediator, Sendable {
+public final class MSAMediator: Mediator, @unchecked Sendable {
     typealias E = WeightedGraph<String, Float>.E
     
     private var componentsGraph = WeightedGraph<String, Float>()
@@ -85,14 +85,14 @@ public final class MSAMediator: Mediator, Sendable {
             self.componentsIDMapLock.signal()
             
 
-            guard let otherDelegate = (other.delegate as? (any MSAInteractionsManager)) else {
+            guard let otherDelegate = (other.getDelegate() as? (any MSAInteractionsManager)) else {
                 self.isRegisteringComponentLock.wait()
                 self.isRegisteringComponent = false
                 self.isRegisteringComponentLock.signal()
                 fatalError("Component \(componentID) is expected to have delegate of type any \(String(describing: Self.self))")
             }
             
-            guard let delegate = (component.delegate as? (any MSAInteractionsManager)) else {
+            guard let delegate = (component.getDelegate() as? (any MSAInteractionsManager)) else {
                 self.isRegisteringComponentLock.wait()
                 self.isRegisteringComponent = false
                 self.isRegisteringComponentLock.signal()
@@ -147,7 +147,7 @@ public final class MSAMediator: Mediator, Sendable {
         if let dependencies = self.flatDependencyMap[component.id] {
             dependencies.forEach { dependency in
                 if self.componentsIDMap[dependency]?.id != component.id {
-                    self.componentsIDMap[dependency]?.delegate?.willCheckout(args: BroadcastArgs(source: component))
+                    self.componentsIDMap[dependency]?.getDelegate()?.willCheckout(args: BroadcastArgs(source: component))
                 }
             }
         }
@@ -251,7 +251,7 @@ public final class MSAMediator: Mediator, Sendable {
             self.loggerLock.signal()
             #endif
             
-            componentToNotify.delegate?.notify(args: eventArgs)
+            componentToNotify.getDelegate()?.notify(args: eventArgs)
         }
         self.componentsMSALock.signal()
     }
@@ -382,7 +382,7 @@ public final class MSAMediator: Mediator, Sendable {
             self.loggerLock.signal()
             #endif
             
-            guard let componentToNotifyDelegate = componentToNotify.delegate as? any MSAInteractionsManager else {
+            guard let componentToNotifyDelegate = componentToNotify.getDelegate() as? any MSAInteractionsManager else {
                 self.componentsMSALock.signal()
                 fatalError("Component to notify with id \(componentToNotify.id) was expected to have delegate of type any \(String(describing: Self.self))")
             }
