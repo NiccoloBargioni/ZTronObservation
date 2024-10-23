@@ -226,6 +226,13 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         self.scheduleMSAUpdateLock.wait()
         if self.scheduleMSAUpdate[sourceID] == true {
             
+        #if DEBUG
+        self.loggerLock.wait()
+        self.logger.log(level: .debug, "ⓘ Updating MSA of component \(sourceID)")
+        self.loggerLock.signal()
+        #endif
+
+            
             self.componentsMSA[sourceID] = try! self.componentsGraph.msa(root: vertexID)
             self.scheduleMSAUpdate[sourceID] = false
             
@@ -355,6 +362,13 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
 
         self.scheduleMSAUpdateLock.wait()
         if self.scheduleMSAUpdate[sourceComponent.id] == true {
+            
+        #if DEBUG
+        self.loggerLock.wait()
+        self.logger.log(level: .debug, "ⓘ Updating MSA of component \(sourceComponent.id), in function \(#function)")
+        self.loggerLock.signal()
+        #endif
+
             
             self.componentsGraphLock.wait()
             guard let vertexID = self.componentsGraph.indexOfVertex(sourceComponent.id) else {
