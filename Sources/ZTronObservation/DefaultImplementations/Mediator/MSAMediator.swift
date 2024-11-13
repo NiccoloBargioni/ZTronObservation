@@ -411,7 +411,7 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
             
             guard let componentToNotifyDelegate = componentToNotify.getDelegate() as? any MSAInteractionsManager else {
                 self.componentsMSALock.signal()
-                fatalError("Component to notify with id \(componentToNotify.id) was expected to have delegate of type any \(String(describing: Self.self))")
+                fatalError("Component to notify with id \(componentToNotify.id) was expected to have delegate of type any \(String(describing: MSAInteractionsManager.self))")
             }
             
             
@@ -419,5 +419,40 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         }
         self.componentsIDMapLock.signal()
         self.componentsMSALock.signal()
+    }
+    
+    /// A function that converts the components graph in its DOT description, where an arrow componentA → componentB means that componentA sends notifications to componentB, or equivalently, componentB signalled insterest in componentA
+    public func toDOT(_ graphName: String = "componentsGraph") -> String {
+        var DOTTree = String("digraph \"\(graphName)\" {\n")
+        
+        self.componentsGraphLock.wait()
+        self.componentsGraph.vertices.forEach { id in
+            var neighboursList = String("{ ")
+            let allNeighbours = self.componentsGraph.edgesForVertex(id)
+            
+            
+            if let neighbours = allNeighbours {
+                for (offset, neighbour) in neighbours.enumerated() {
+                    let nodeName = self.componentsGraph[neighbour.v]
+                                            
+                    neighboursList.append(
+                        "\"\(nodeName)\"".appending(
+                            offset >= neighbours.count - 1 ? "" : ", "
+                        )
+                    )
+                }
+                
+                neighboursList.append(" }")
+                
+
+                DOTTree = DOTTree.appending("""
+                    "\(id)" -> \(neighboursList);\n
+                """)
+            }
+        }
+        self.componentsGraphLock.signal()
+        
+        DOTTree.append("}")
+        return DOTTree
     }
 }

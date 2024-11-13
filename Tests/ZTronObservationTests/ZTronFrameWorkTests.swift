@@ -299,6 +299,6 @@ fileprivate class GalleryInteractionsManager: InteractionsManager, @unchecked Se
     
     func getMediator() -> (any ZTronObservation.Mediator)? {
         return self.mediator
-    }
+    }    
 }
 
