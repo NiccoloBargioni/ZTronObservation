@@ -248,6 +248,10 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         
         self.componentsMSALock.wait()
         self.componentsMSA[sourceID]?.forEach { edge in
+            guard let dependency = self.componentsIDMap[ self.componentsGraph.vertices[edge.u] ] else {
+                self.componentsMSALock.signal()
+                fatalError("Component \(self.componentsGraph.vertices[edge.u]) is not a valid component.")
+            }
             guard let componentToNotify = self.componentsIDMap[ self.componentsGraph.vertices[edge.v] ] else {
                 self.componentsMSALock.signal()
                 fatalError("Component \(self.componentsGraph.vertices[edge.v]) is not a valid component.")
@@ -259,7 +263,7 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
             self.loggerLock.signal()
             #endif
             
-            componentToNotify.getDelegate()?.notify(args: eventArgs)
+            componentToNotify.getDelegate()?.notify(args: MSAArgs(root: eventArgs.getSource(), from: dependency))
         }
         self.componentsMSALock.signal()
     }
