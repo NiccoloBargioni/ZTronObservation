@@ -460,8 +460,7 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         self.componentsGraphLock.wait()
         self.componentsIDMapLock.wait()
         
-        if componentsGraph.indexOfVertex(component.id) == nil ||
-            type(of: self.componentsIDMap[component.id]) != type(of: component) {
+        if componentsGraph.indexOfVertex(component.id) == nil {
             #if DEBUG
             self.logger.warning("\(component.id) is not a valid component in the notification subsystem @ \(#function) in \(String(describing: Self.self))")
             #endif
