@@ -491,7 +491,7 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
             let uID = self.componentsGraph.vertexAtIndex(edge.u)
             let vID = self.componentsGraph.vertexAtIndex(edge.v)
             
-            DOTTree.append("\(uID) -> \(vID) [label=\(edge.weight)];\n")
+            DOTTree.append("\"\(uID)\" -> \"\(vID)\" [label=\(edge.weight)];\n")
         }
         
         DOTTree.append("}")
