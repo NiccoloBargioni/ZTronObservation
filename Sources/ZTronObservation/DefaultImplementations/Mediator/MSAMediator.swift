@@ -455,4 +455,50 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         DOTTree.append("}")
         return DOTTree
     }
+    
+    public final func MSAToDOT(for component: any Component) -> String {
+        self.componentsGraphLock.wait()
+        self.componentsIDMapLock.wait()
+        
+        if componentsGraph.indexOfVertex(component.id) == nil ||
+            type(of: self.componentsIDMap[component.id]) != type(of: component) {
+            #if DEBUG
+            self.logger.warning("\(component.id) is not a valid component in the notification subsystem @ \(#function) in \(String(describing: Self.self))")
+            #endif
+            
+            self.componentsIDMapLock.signal()
+            self.componentsGraphLock.signal()
+
+            
+            return ""
+        }
+        
+        self.componentsIDMapLock.signal()
+            
+        var DOTTree = String("digraph \"\(component.id) MSA\" {\n")
+        DOTTree.append("node [shape = circle, ordering=out];\n")
+        
+        self.componentsMSALock.wait()
+        guard let MSAOfComponent = self.componentsMSA[component.id] else {
+            #if DEBUG
+            self.logger.error("No MSA for \(component.id) in notification subsystem @ \(#function) in \(String(describing: Self.self))")
+            #endif
+            self.componentsMSALock.signal()
+            return ""
+        }
+        self.componentsMSALock.signal()
+        
+        MSAOfComponent.forEach { edge in
+            let uID = self.componentsGraph.vertexAtIndex(edge.u)
+            let vID = self.componentsGraph.vertexAtIndex(edge.v)
+            
+            DOTTree.append("\(uID) -> \(vID) [label=\(edge.weight)];\n")
+        }
+        
+        DOTTree.append("}")
+        
+        self.componentsGraphLock.signal()
+        
+        return DOTTree
+    }
 }
