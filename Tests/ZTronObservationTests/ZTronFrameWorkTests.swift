@@ -308,7 +308,10 @@ internal final class ComponentAInteractionsManager: MSAInteractionsManager, @unc
     }
     
     func notify(args: ZTronObservation.BroadcastArgs) {
+        guard let owner = self.owner else { return }
+        guard let mediator = self.mediator else { return }
         
+        print(mediator.MSAToDOT(for: args.getSource()))
     }
     
     func willCheckout(args: ZTronObservation.BroadcastArgs) {
@@ -366,18 +369,14 @@ internal final class TestComponentA: Component, @unchecked Sendable {
     internal func hash(into hasher: inout Hasher) {
         hasher.combine(self.id)
     }
-    
-    internal func testNotify() {
-        self.delegate?.pushNotification(eventArgs: BroadcastArgs(source: self))
-    }
-    
+        
     deinit {
         self.delegate?.detach()
     }
     
 }
 
-// MARK: - TWO Components
+
 internal final class ComponentBInteractionsManager: MSAInteractionsManager, @unchecked Sendable {
     weak private var owner: TestComponentB?
     weak private var mediator: MSAMediator?
@@ -399,7 +398,10 @@ internal final class ComponentBInteractionsManager: MSAInteractionsManager, @unc
     }
     
     func notify(args: ZTronObservation.BroadcastArgs) {
+        guard let owner = self.owner else { return }
+        guard let mediator = self.mediator else { return }
         
+        print(mediator.MSAToDOT(for: args.getSource()))
     }
     
     func willCheckout(args: ZTronObservation.BroadcastArgs) {
@@ -457,11 +459,7 @@ internal final class TestComponentB: Component, @unchecked Sendable {
     internal func hash(into hasher: inout Hasher) {
         hasher.combine(self.id)
     }
-    
-    internal func testNotify() {
-        self.delegate?.pushNotification(eventArgs: BroadcastArgs(source: self))
-    }
-    
+        
     deinit {
         self.delegate?.detach()
     }
@@ -494,7 +492,14 @@ final class ZTronFrameWorkTests: XCTestCase {
         componentA.setDelegate(ComponentAInteractionsManager(owner: componentA, mediator: mediator))
         componentB.setDelegate(ComponentBInteractionsManager(owner: componentB, mediator: mediator))
         
-        componentA.testNotify()
-        componentB.testNotify()
+        componentA.pushNotification()
+        componentB.pushNotification()
+        
+        componentA.pushNotification()
+        componentB.pushNotification()
+        
+        componentA.getDelegate()?.detach()
+        print(mediator.MSAToDOT(for: componentB))
+        componentB.getDelegate()?.detach()
     }
 }

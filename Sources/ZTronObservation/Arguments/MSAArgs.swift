@@ -1,6 +1,6 @@
 import Foundation
 
-open class MSAArgs: BroadcastArgs {
+open class MSAArgs: BroadcastArgs, @unchecked Sendable {
     private let from: any Component
     private let fromLock = DispatchSemaphore(value: 1)
 

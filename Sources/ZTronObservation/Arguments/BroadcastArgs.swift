@@ -2,7 +2,7 @@ import Foundation
 
 /// A class representing the informations to attach to each notification. This implementation simply stores a reference
 /// to the component that originated the notification. Can be extended to include informations about what changed.
-open class BroadcastArgs {
+open class BroadcastArgs: @unchecked Sendable {
     private let source: any Component
     private let sourceLock = DispatchSemaphore(value: 1)
     

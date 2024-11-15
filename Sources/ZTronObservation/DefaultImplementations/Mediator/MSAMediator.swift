@@ -38,7 +38,6 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
     /// - Add the component ID to the components graph.
     /// - Invoking `peerDiscovered` on every other component in the graph.
     ///
-    /// - Note: The new component's `peerDiscovered(_:)` should not invoke any method from Mediator other than `signalInterest(_:,_:,_:)`. Otherwise, a deadlock could result.
     ///
     /// - Complexity: time: O(V)
     public func register(_ component: any Component) {
@@ -137,13 +136,13 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
     ///
     /// - Complexity: time: O(V²), to find the component index and remove it from the dependency lists. Called unfrequently and worst case is not common.
     public func unregister(_ component: any Component) {
-        
         self.componentsIDMapLock.wait()
         guard self.componentsIDMap[component.id] != nil else {
             componentsIDMapLock.signal()
-            fatalError("Attempted to register \(component.id), that isn't a registered component.")
+            fatalError("Attempted to unregister \(component.id), that isn't a registered component.")
         }
         
+        // only direct dependencies will receive a `.willCheckout(_:)`
         self.flatDependencyMapLock.wait()
         if let dependencies = self.flatDependencyMap[component.id] {
             dependencies.forEach { dependency in
@@ -155,9 +154,12 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         
         self.scheduleMSAUpdateLock.wait()
         self.markMSAForUpdates(from: component.id)
-
+        self.scheduleMSAUpdate[component.id] = nil
+        self.scheduleMSAUpdateLock.signal()
         
+        self.logger.debug("Checkpoint 1")
         self.componentsGraphLock.wait()
+        self.logger.debug("Checkpoint 2")
         componentsGraph.edgesForVertex(component.id)?.forEach { edge in
             let dest = self.componentsGraph.vertices[edge.v]
             
@@ -166,6 +168,7 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
             }
         }
 
+        
         self.componentsGraph.removeVertex(component.id)
         self.componentsGraphLock.signal()
         
@@ -178,9 +181,7 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         
         self.flatDependencyMap[component.id] = nil
         self.flatDependencyMapLock.signal()
-        
-        self.scheduleMSAUpdate[component.id] = nil
-        self.scheduleMSAUpdateLock.signal()
+
         
         #if DEBUG
         self.loggerLock.wait()
@@ -210,35 +211,11 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         
         self.componentsIDMapLock.wait()
         self.componentsGraphLock.wait()
-        
-        defer {
-            self.componentsIDMapLock.signal()
-            self.componentsGraphLock.signal()
-        }
-        
-        guard self.componentsIDMap[sourceID] != nil,
-              let vertexID = self.componentsGraph.indexOfVertex(sourceID) else {
-            fatalError("Either you tried to push a notification down the MSA of a component that's not registered, or wtf.")
-        }
-        
-
+        self.componentsMSALock.wait()
         self.scheduleMSAUpdateLock.wait()
-        if self.scheduleMSAUpdate[sourceID] == true {
-            
-            #if DEBUG
-            self.loggerLock.wait()
-            self.logger.log(level: .debug, "ⓘ Updating MSA of component \(sourceID)")
-            self.loggerLock.signal()
-            #endif
-
-            self.componentsMSALock.wait()
-            self.componentsMSA[sourceID] = try! self.componentsGraph.msa(root: vertexID)
-            self.componentsMSALock.signal()
-            self.scheduleMSAUpdate[sourceID] = false
-        }
+        self.updateMSAIfNeeded(of: eventArgs.getSource())
         self.scheduleMSAUpdateLock.signal()
 
-        
         #if DEBUG
         self.loggerLock.wait()
         self.logger.log(level: .debug, "ⓘ Component \(sourceID) has MSA of size \(self.componentsMSA[sourceID]?.count ?? -1)")
@@ -246,13 +223,18 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         #endif
         
         
-        self.componentsMSALock.wait()
+        var componentsToNotify: [(any Component, any Component)] = .init()
+        
         self.componentsMSA[sourceID]?.forEach { edge in
             guard let dependency = self.componentsIDMap[ self.componentsGraph.vertices[edge.u] ] else {
                 self.componentsMSALock.signal()
+                self.componentsIDMapLock.signal()
+                self.componentsGraphLock.signal()
                 fatalError("Component \(self.componentsGraph.vertices[edge.u]) is not a valid component.")
             }
             guard let componentToNotify = self.componentsIDMap[ self.componentsGraph.vertices[edge.v] ] else {
+                self.componentsIDMapLock.signal()
+                self.componentsGraphLock.signal()
                 self.componentsMSALock.signal()
                 fatalError("Component \(self.componentsGraph.vertices[edge.v]) is not a valid component.")
             }
@@ -263,9 +245,16 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
             self.loggerLock.signal()
             #endif
             
-            componentToNotify.getDelegate()?.notify(args: MSAArgs(root: eventArgs.getSource(), from: dependency))
+            componentsToNotify.append((componentToNotify, dependency))
         }
+        
         self.componentsMSALock.signal()
+        self.componentsIDMapLock.signal()
+        self.componentsGraphLock.signal()
+
+        componentsToNotify.forEach { component, dependency in
+            component.getDelegate()?.notify(args: MSAArgs(root: eventArgs.getSource(), from: dependency))
+        }
     }
     
 
@@ -283,7 +272,6 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
     ///
     /// - Complexity: time: O(V), to recursively mark MSA of parents as needing update.
     public func signalInterest(_ asker: any Component, to: any Component, priority: Float = 1.0) {
-        print(#function)
         self.componentsIDMapLock.wait()
         guard let dest = self.componentsIDMap[ asker.id ]?.id,
               let origin = self.componentsIDMap[ to.id ]?.id else {
@@ -327,7 +315,6 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         self.markMSAForUpdates(from: dest)
         self.componentsIDMapLock.signal()
         self.scheduleMSAUpdateLock.signal()
-
     }
     
     /// Starting from a valid component in the graph, it marks such component for MSA updates, then it marks all the nodes that have
@@ -365,17 +352,11 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         }
         
         self.componentsGraphLock.wait()
-        guard let vertexID = self.componentsGraph.indexOfVertex(sourceComponent.id) else {
-            self.componentsGraphLock.signal()
-            
-            #if DEBUG
-            self.loggerLock.wait()
-            self.logger.log(level: .debug, "ⓘ Component \(sourceComponent.id) not registered in graph.")
-            self.loggerLock.signal()
-            
-            fatalError()
-            #endif
-        }
+        self.componentsMSALock.wait()
+        self.scheduleMSAUpdateLock.wait()
+        self.updateMSAIfNeeded(of: eventArgs.getSource())
+        self.scheduleMSAUpdateLock.signal()
+        self.componentsMSALock.signal()
         self.componentsGraphLock.signal()
         
         #if DEBUG
@@ -383,22 +364,6 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         self.logger.log(level: .debug, "ⓘ Component \(sourceComponent.id) signalled that its configuration is complete.")
         self.loggerLock.signal()
         #endif
-
-
-        self.scheduleMSAUpdateLock.wait()
-        if self.scheduleMSAUpdate[sourceComponent.id] == true {
-            
-            #if DEBUG
-            self.loggerLock.wait()
-            self.logger.log(level: .debug, "ⓘ Updating MSA of component \(sourceComponent.id)")
-            self.loggerLock.signal()
-            #endif
-
-            self.componentsMSALock.wait()
-            self.componentsMSA[sourceComponent.id] = try! self.componentsGraph.msa(root: vertexID)
-            self.scheduleMSAUpdate[sourceComponent.id] = false
-        }
-        self.scheduleMSAUpdateLock.signal()
         
         
         self.componentsMSA[sourceComponent.id]?.forEach { edge in
@@ -471,15 +436,21 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
             
             self.componentsIDMapLock.signal()
             self.componentsGraphLock.signal()
-
             
             return ""
         }
+        
+        self.componentsMSALock.wait()
+        self.scheduleMSAUpdateLock.wait()
+        self.updateMSAIfNeeded(of: component)
+        self.scheduleMSAUpdateLock.signal()
+        self.componentsMSALock.signal()
         
         self.componentsIDMapLock.signal()
             
         var DOTTree = String("digraph \"\(component.id) MSA\" {\n")
         DOTTree.append("node [shape = circle, ordering=out];\n")
+        
         
         self.componentsMSALock.wait()
         guard let MSAOfComponent = self.componentsMSA[component.id] else {
@@ -503,5 +474,32 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         self.componentsGraphLock.signal()
         
         return DOTTree
+    }
+    
+    
+    /// Updates the MSA of the specified component. The caller of this function should make sure to have locked the following semaphores:
+    ///
+    /// - scheduleMSAUpdateLock
+    /// - componentsIDMapLock
+    /// - componentsGraphLock
+    /// - componentsMSA
+    private func updateMSAIfNeeded(of component: any Component) {
+        guard self.componentsIDMap[component.id] != nil,
+              let vertexID = self.componentsGraph.indexOfVertex(component.id) else {
+            fatalError("Attempted to update MSA of a component that's not part of the notification subsystem")
+        }
+        
+
+        if self.scheduleMSAUpdate[component.id] == true {
+            
+            #if DEBUG
+            self.loggerLock.wait()
+            self.logger.log(level: .debug, "ⓘ Updating MSA of component \(component.id)")
+            self.loggerLock.signal()
+            #endif
+
+            self.componentsMSA[component.id] = try! self.componentsGraph.msa(root: vertexID)
+            self.scheduleMSAUpdate[component.id] = false
+        }
     }
 }
