@@ -409,7 +409,7 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
             
             #if DEBUG
             self.loggerLock.wait()
-            self.logger.log(level: .debug, "ⓘ Sending notification \(sourceComponent.id) → \(componentToNotify.id)")
+            self.logger.log(level: .debug, "ⓘ Sending componentDidConfigure notification \(sourceComponent.id) → \(componentToNotify.id)")
             self.loggerLock.signal()
             #endif
             

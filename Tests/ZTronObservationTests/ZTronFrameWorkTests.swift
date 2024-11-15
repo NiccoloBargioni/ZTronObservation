@@ -4,25 +4,6 @@ import SwiftGraph
 
 
 
-final class ZTronFrameWorkTests: XCTestCase {
-    func testBroadcastMediator() throws {
-        let mediator = BroadcastMediator()
-        
-        let topbar = TopbarComponent()
-        let topbarInteractions = TopbarInteractionsManager(owner: topbar, mediator: mediator)
-        topbar.delegate = topbarInteractions
-        
-        let gallery = GalleryComponent(initialGallery: "cosmic way")
-        let galleryInteractions = GalleryInteractionsManager(owner: gallery, mediator: mediator)
-        gallery.delegate = galleryInteractions
-        
-        topbar.setCurrentGallery(to: 3)
-        
-        topbar.delegate?.detach()
-        gallery.delegate?.detach()
-    }
-}
-
 // MARK: TEST SUBCLASSING
 
 fileprivate class TopbarComponent: Component {
@@ -299,6 +280,221 @@ fileprivate class GalleryInteractionsManager: InteractionsManager, @unchecked Se
     
     func getMediator() -> (any ZTronObservation.Mediator)? {
         return self.mediator
-    }    
+    }
+
 }
 
+
+
+// MARK: - TWO Components
+internal final class ComponentAInteractionsManager: MSAInteractionsManager, @unchecked Sendable {
+    weak private var owner: TestComponentA?
+    weak private var mediator: MSAMediator?
+    
+    internal init(owner: TestComponentA, mediator: MSAMediator) {
+        self.owner = owner
+        self.mediator = mediator
+    }
+    
+    func peerDiscovered(eventArgs: ZTronObservation.BroadcastArgs) {
+        guard let owner = self.owner else { return }
+        if let componentB = eventArgs.getSource() as? TestComponentB {
+            self.mediator?.signalInterest(owner, to: componentB)
+        }
+    }
+    
+    func peerDidAttach(eventArgs: ZTronObservation.BroadcastArgs) {
+        
+    }
+    
+    func notify(args: ZTronObservation.BroadcastArgs) {
+        
+    }
+    
+    func willCheckout(args: ZTronObservation.BroadcastArgs) {
+        
+    }
+    
+    func getOwner() -> (any ZTronObservation.Component)? {
+        return self.owner
+    }
+    
+    func getMediator() -> (any ZTronObservation.Mediator)? {
+        return self.mediator
+    }
+}
+
+internal final class TestComponentA: Component, @unchecked Sendable {
+    let id: String
+    private var delegate: (any InteractionsManager)? {
+        didSet {
+            guard let delegate = self.delegate else { return }
+            delegate.setup()
+        }
+        
+        willSet {
+            guard let delegate = self.delegate else { return }
+            delegate.detach()
+        }
+    }
+    
+    public init() {
+        self.id = "Component A"
+    }
+    
+    func getDelegate() -> (any ZTronObservation.InteractionsManager)? {
+        return self.delegate
+    }
+    
+    func setDelegate(_ interactionsManager: (any ZTronObservation.InteractionsManager)?) {
+        guard let interactionsManager = interactionsManager as? ComponentAInteractionsManager else {
+            if interactionsManager == nil {
+                self.delegate = nil
+                return
+            } else {
+                fatalError("Expected interactions manager of type \(String(describing: ComponentAInteractionsManager.self)) in \(#function) @ \(#file)")
+            }
+        }
+        
+        self.delegate = interactionsManager
+    }
+    
+    static func == (lhs: TestComponentA, rhs: TestComponentA) -> Bool {
+        return lhs.id == rhs.id
+    }
+    
+    internal func hash(into hasher: inout Hasher) {
+        hasher.combine(self.id)
+    }
+    
+    internal func testNotify() {
+        self.delegate?.pushNotification(eventArgs: BroadcastArgs(source: self))
+    }
+    
+    deinit {
+        self.delegate?.detach()
+    }
+    
+}
+
+// MARK: - TWO Components
+internal final class ComponentBInteractionsManager: MSAInteractionsManager, @unchecked Sendable {
+    weak private var owner: TestComponentB?
+    weak private var mediator: MSAMediator?
+    
+    internal init(owner: TestComponentB, mediator: MSAMediator) {
+        self.owner = owner
+        self.mediator = mediator
+    }
+    
+    func peerDiscovered(eventArgs: ZTronObservation.BroadcastArgs) {
+        guard let owner = self.owner else { return }
+        if let componentA = eventArgs.getSource() as? TestComponentA {
+            self.mediator?.signalInterest(owner, to: componentA)
+        }
+    }
+    
+    func peerDidAttach(eventArgs: ZTronObservation.BroadcastArgs) {
+        
+    }
+    
+    func notify(args: ZTronObservation.BroadcastArgs) {
+        
+    }
+    
+    func willCheckout(args: ZTronObservation.BroadcastArgs) {
+        
+    }
+    
+    func getOwner() -> (any ZTronObservation.Component)? {
+        return self.owner
+    }
+    
+    func getMediator() -> (any ZTronObservation.Mediator)? {
+        return self.mediator
+    }
+}
+
+internal final class TestComponentB: Component, @unchecked Sendable {
+    let id: String
+    private var delegate: (any InteractionsManager)? {
+        didSet {
+            guard let delegate = self.delegate else { return }
+            delegate.setup()
+        }
+        
+        willSet {
+            guard let delegate = self.delegate else { return }
+            delegate.detach()
+        }
+    }
+    
+    public init() {
+        self.id = "Component B"
+    }
+    
+    func getDelegate() -> (any ZTronObservation.InteractionsManager)? {
+        return self.delegate
+    }
+    
+    func setDelegate(_ interactionsManager: (any ZTronObservation.InteractionsManager)?) {
+        guard let interactionsManager = interactionsManager as? ComponentBInteractionsManager else {
+            if interactionsManager == nil {
+                self.delegate = nil
+                return
+            } else {
+                fatalError("Expected interactions manager of type \(String(describing: ComponentBInteractionsManager.self)) in \(#function) @ \(#file)")
+            }
+        }
+        
+        self.delegate = interactionsManager
+    }
+    
+    static func == (lhs: TestComponentB, rhs: TestComponentB) -> Bool {
+        return lhs.id == rhs.id
+    }
+    
+    internal func hash(into hasher: inout Hasher) {
+        hasher.combine(self.id)
+    }
+    
+    internal func testNotify() {
+        self.delegate?.pushNotification(eventArgs: BroadcastArgs(source: self))
+    }
+    
+    deinit {
+        self.delegate?.detach()
+    }
+    
+}
+
+final class ZTronFrameWorkTests: XCTestCase {
+    func testBroadcastMediator() throws {
+        let mediator = BroadcastMediator()
+        
+        let topbar = TopbarComponent()
+        let topbarInteractions = TopbarInteractionsManager(owner: topbar, mediator: mediator)
+        topbar.delegate = topbarInteractions
+        
+        let gallery = GalleryComponent(initialGallery: "cosmic way")
+        let galleryInteractions = GalleryInteractionsManager(owner: gallery, mediator: mediator)
+        gallery.delegate = galleryInteractions
+        
+        topbar.setCurrentGallery(to: 3)
+        
+        topbar.delegate?.detach()
+        gallery.delegate?.detach()
+    }
+    
+    func testTwoInterdependentComponents() throws {
+        let mediator = MSAMediator()
+        let componentA = TestComponentA()
+        let componentB = TestComponentB()
+        
+        componentA.setDelegate(ComponentAInteractionsManager(owner: componentA, mediator: mediator))
+        componentB.setDelegate(ComponentBInteractionsManager(owner: componentB, mediator: mediator))
+        
+        componentA.testNotify()
+        componentB.testNotify()
+    }
+}
