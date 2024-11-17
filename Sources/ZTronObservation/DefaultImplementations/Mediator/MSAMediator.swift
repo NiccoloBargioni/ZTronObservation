@@ -5,7 +5,7 @@ import os
 // TODO: Can add a map from a vertex to its index in componentsGraph.vertices for performance improvements
 // TODO: Consider to change `componentsIDMap` to be of type [ String: Weak<any Component> ] in case of memory leaks
 public final class MSAMediator: Mediator, @unchecked Sendable {
-    typealias E = WeightedUniqueElementsGraph<String, Float>.E
+    typealias E = WeightedGraph<String, Float>.E
     
     private var componentsGraph = WeightedGraph<String, Float>()
     private var componentsIDMap = [ String: any Component ].init()
@@ -50,12 +50,12 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
 
         if or == .replace {
             if componentExists {
+                #if DEBUG
+                self.loggerLock.wait()
+                self.logger.warning("Attempted to register a component with the same id of another that's already part of the notification subsystem. Replacing.")
+                self.loggerLock.signal()
+                #endif
                 self.unregister(component)
-            #if DEBUG
-            self.loggerLock.wait()
-            self.logger.warning("Attempted to register a component with the same id of another that's already part of the notification subsystem. Replacing.")
-            self.loggerLock.signal()
-            #endif
             }
         } else {
             if componentExists {
@@ -228,8 +228,8 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
                 if let component = component {
                     self.updateMSAIfNeeded(of: component)
                     msa.forEach { msaEdge in
-                        assert(self.componentsGraph[msaEdge.u] != component.id)
-                        assert(self.componentsGraph[msaEdge.v] != component.id)
+                        assert(self.componentsGraph[msaEdge.u] != component.id, "Component \(component.id) still in msa of \(self.componentsGraph[msaEdge.u])")
+                        assert(self.componentsGraph[msaEdge.v] != component.id, "Component \(component.id) still in msa of \(self.componentsGraph[msaEdge.v])")
                     }
                 }
             }
