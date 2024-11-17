@@ -331,6 +331,12 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
             fatalError("Either \(asker.id) or \(to.id) are not registered in the notification subsystem")
         }
         
+        if origin == dest {
+            self.loggerLock.wait()
+            self.logger.error("⚠️ Attempting to attach \(origin) → \(dest), which is a self loop. This is not allowed.")
+            self.loggerLock.signal()
+        }
+        
         #if DEBUG
         self.loggerLock.wait()
         self.logger.log(level: .debug, "ⓘ Attaching \(origin) → \(dest)")
