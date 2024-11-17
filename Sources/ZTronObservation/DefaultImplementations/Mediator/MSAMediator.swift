@@ -219,14 +219,23 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         }
 
         self.componentsMSALock.wait()
+        self.scheduleMSAUpdateLock.wait()
+        self.componentsIDMapLock.wait()
         self.componentsGraph.forEach { componentID in
             if let msa = self.componentsMSA[componentID] {
-                msa.forEach { msaEdge in
-                    assert(self.componentsGraph[msaEdge.u] != component.id)
-                    assert(self.componentsGraph[msaEdge.v] != component.id)
+                let component = self.componentsIDMap[componentID]
+                
+                if let component = component {
+                    self.updateMSAIfNeeded(of: component)
+                    msa.forEach { msaEdge in
+                        assert(self.componentsGraph[msaEdge.u] != component.id)
+                        assert(self.componentsGraph[msaEdge.v] != component.id)
+                    }
                 }
             }
         }
+        self.componentsIDMapLock.signal()
+        self.scheduleMSAUpdateLock.signal()
         self.componentsMSALock.signal()
         self.componentsGraphLock.signal()
         #endif
@@ -540,7 +549,7 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
     /// - scheduleMSAUpdateLock
     /// - componentsIDMapLock
     /// - componentsGraphLock
-    /// - componentsMSA
+    /// - componentsMSALock
     private func updateMSAIfNeeded(of component: any Component) {
         guard self.componentsIDMap[component.id] != nil,
               let vertexID = self.componentsGraph.indexOfVertex(component.id) else {
