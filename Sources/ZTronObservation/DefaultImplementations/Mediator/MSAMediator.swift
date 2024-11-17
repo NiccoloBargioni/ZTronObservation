@@ -225,7 +225,7 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
             if let msa = self.componentsMSA[componentID] {
                 let otherComponent = self.componentsIDMap[componentID]
                 if let otherComponent = otherComponent {
-                    self.updateMSAIfNeeded(of: component)
+                    self.updateMSAIfNeeded(of: otherComponent)
                     
                     self.componentsGraphLock.signal()
                     self.componentsMSALock.signal()
