@@ -5,7 +5,7 @@ import os
 // TODO: Can add a map from a vertex to its index in componentsGraph.vertices for performance improvements
 // TODO: Consider to change `componentsIDMap` to be of type [ String: Weak<any Component> ] in case of memory leaks
 public final class MSAMediator: Mediator, @unchecked Sendable {
-    typealias E = WeightedGraph<String, Float>.E
+    typealias E = WeightedUniqueElementsGraph<String, Float>.E
     
     private var componentsGraph = WeightedGraph<String, Float>()
     private var componentsIDMap = [ String: any Component ].init()
