@@ -1,5 +1,7 @@
 import Foundation
 
+// TODO: Adjust register so that it handles conflicts the way that's specified by `or` parameter
+
 /// A `Mediator` instance that handles notifications using a broadcast system: a notification from a changed component is dispatched to every other
 /// registered component (equality between components is tested based on both their `.id` and dynamic types).
 ///
@@ -43,7 +45,7 @@ public final class BroadcastMediator: Mediator, @unchecked Sendable {
     /// - Note: This method is asynchronously executed on a serial queue with `.background` QoS.
     ///
     /// - Complexity: **Time**: O(listeners.count) to find listeners of the same id and type as the new subscriber. **Memory**: O(1)
-    public func register(_ listener: any Component) {
+    public func register(_ listener: any Component, or: OnRegisterConflict) {
         self.registerQueue.sync {
             self.listenersLock.wait()
             self.listeners.removeAll { subscriber in

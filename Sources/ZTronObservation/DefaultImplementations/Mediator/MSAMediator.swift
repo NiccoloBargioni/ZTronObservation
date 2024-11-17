@@ -42,7 +42,7 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
     /// - Complexity: time: O(V)
     public func register(
         _ component: any Component,
-        or: MSAMediator.OnConflict = .replace
+        or: OnRegisterConflict = .replace
     ) {
         self.componentsIDMapLock.wait()
         let componentExists: Bool = componentsIDMap[component.id] == nil
@@ -561,8 +561,4 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         }
     }
     
-    public enum OnConflict: Sendable {
-        case ignore
-        case replace
-    }
 }

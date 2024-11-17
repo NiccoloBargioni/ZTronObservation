@@ -6,11 +6,16 @@ import Foundation
 public protocol Mediator: Sendable {
     
     /// Use this function to store a reference to the component to later use, and perform initial configurations if needed.
-    func register(_: any Component)
+    func register(_: any Component, or: OnRegisterConflict)
     
     /// Use this function to checkout a component from the notification system, and notify the components of it as seen fit.
     func unregister(_: any Component)
     
     /// Use this function to perform the 1-to-many streaming of the notification from one component to others.
     func pushNotification(eventArgs: BroadcastArgs)
+}
+
+public enum OnRegisterConflict: Sendable {
+    case ignore
+    case replace
 }
