@@ -224,9 +224,22 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         self.componentsGraph.forEach { componentID in
             if let msa = self.componentsMSA[componentID] {
                 let component = self.componentsIDMap[componentID]
-                
                 if let component = component {
                     self.updateMSAIfNeeded(of: component)
+                    
+                    self.componentsGraphLock.signal()
+                    self.componentsMSALock.signal()
+                    self.scheduleMSAUpdateLock.signal()
+                    self.componentsIDMapLock.signal()
+                    
+                    print(self.MSAToDOT(for: component))
+                    
+                    self.componentsGraphLock.wait()
+                    self.componentsMSALock.wait()
+                    self.scheduleMSAUpdateLock.wait()
+                    self.componentsIDMapLock.wait()
+
+                    
                     msa.forEach { msaEdge in
                         assert(self.componentsGraph[msaEdge.u] != component.id, "Component \(component.id) still in msa of \(self.componentsGraph[msaEdge.u])")
                         assert(self.componentsGraph[msaEdge.v] != component.id, "Component \(component.id) still in msa of \(self.componentsGraph[msaEdge.v])")
@@ -498,6 +511,12 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         return DOTTree
     }
     
+    /// Uses the following locks:
+    ///
+    /// - componentsGraphLock
+    /// - componentsIDMapLock
+    /// - componentsMSALock
+    /// - scheduleMSAUpdateLock
     public final func MSAToDOT(for component: any Component) -> String {
         self.componentsGraphLock.wait()
         self.componentsIDMapLock.wait()
