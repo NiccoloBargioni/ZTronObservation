@@ -603,7 +603,8 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
             if msaGraph.vertices.count > 0 {
                 assert(msaGraph.isDAG == true)
                 assert(msaGraph.findTreeRoot() != nil)
-                assert(self.componentsGraph[msaGraph[msaGraph.findTreeRoot()!]] == component.id)
+                let treeRoot = msaGraph.findTreeRoot()!
+                assert(self.componentsGraph[treeRoot] == component.id)
             }
             
             self.scheduleMSAUpdate[component.id] = false
