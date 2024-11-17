@@ -585,6 +585,27 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
             #endif
 
             self.componentsMSA[component.id] = try! self.componentsGraph.msa(root: vertexID)
+            
+            var allVerticesInMSA: Set<Int> = .init()
+            
+            self.componentsMSA[component.id]?.forEach { edge in
+                allVerticesInMSA.insert(edge.u)
+                allVerticesInMSA.insert(edge.v)
+            }
+            
+            let msaGraph = WeightedGraph<Int, Float>.init(vertices: Array(allVerticesInMSA))
+            self.componentsMSA[component.id]?.forEach { edge in
+                let indexOfU = msaGraph.indexOfVertex(edge.u)!
+                let indexOfV = msaGraph.indexOfVertex(edge.v)!
+                msaGraph.addEdge(.init(u: indexOfU, v: indexOfV, directed: edge.directed, weight: edge.weight), directed: true)
+            }
+
+            if msaGraph.vertices.count > 0 {
+                assert(msaGraph.isDAG == true)
+                assert(msaGraph.findTreeRoot() != nil)
+                assert(self.componentsGraph[msaGraph[msaGraph.findTreeRoot()!]] == component.id)
+            }
+            
             self.scheduleMSAUpdate[component.id] = false
         }
     }
