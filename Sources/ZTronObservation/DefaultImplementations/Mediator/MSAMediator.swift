@@ -40,7 +40,34 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
     ///
     ///
     /// - Complexity: time: O(V)
-    public func register(_ component: any Component) {
+    public func register(
+        _ component: any Component,
+        or: MSAMediator.OnConflict = .replace
+    ) {
+        self.componentsIDMapLock.wait()
+        let componentExists: Bool = componentsIDMap[component.id] == nil
+        self.componentsIDMapLock.signal()
+
+        if or == .replace {
+            if componentExists {
+                self.unregister(component)
+            #if DEBUG
+            self.loggerLock.wait()
+            self.logger.warning("Attempted to register a component with the same id of another that's already part of the notification subsystem. Replacing.")
+            self.loggerLock.signal()
+            #endif
+            }
+        } else {
+            if componentExists {
+                #if DEBUG
+                self.loggerLock.wait()
+                self.logger.warning("Attempted to register a component with the same id of another that's already part of the notification subsystem. Ignoring.")
+                self.loggerLock.signal()
+                #endif
+                return
+            }
+        }
+        
         self.isRegisteringComponentLock.wait()
         self.isRegisteringComponent = true
         self.isRegisteringComponentLock.signal()
@@ -157,9 +184,7 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         self.scheduleMSAUpdate[component.id] = nil
         self.scheduleMSAUpdateLock.signal()
         
-        self.logger.debug("Checkpoint 1")
         self.componentsGraphLock.wait()
-        self.logger.debug("Checkpoint 2")
         componentsGraph.edgesForVertex(component.id)?.forEach { edge in
             let dest = self.componentsGraph.vertices[edge.v]
             
@@ -308,6 +333,22 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
             self.componentsGraphLock.wait()
         }
 
+        if let outboundEdgesOfOrigin = self.componentsGraph.edgesForVertex(origin) {
+            if outboundEdgesOfOrigin.reduce(false, { destinationEdgeExists, nextEdge in
+                return destinationEdgeExists || self.componentsGraph[nextEdge.v] == dest
+            }) {
+            #if DEBUG
+                self.loggerLock.wait()
+                self.logger.warning("Attempted to register an edge between \(origin) and \(dest) that already exists. Cancelling the registration")
+                self.loggerLock.signal()
+            #endif
+                self.componentsGraphLock.signal()
+                self.isRegisteringComponentLock.signal()
+                self.componentsIDMapLock.signal()
+                return
+            }
+        }
+            
         self.componentsGraph.addEdge(
             from: origin,
             to: dest,
@@ -518,5 +559,10 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
             self.componentsMSA[component.id] = try! self.componentsGraph.msa(root: vertexID)
             self.scheduleMSAUpdate[component.id] = false
         }
+    }
+    
+    public enum OnConflict: Sendable {
+        case ignore
+        case replace
     }
 }
