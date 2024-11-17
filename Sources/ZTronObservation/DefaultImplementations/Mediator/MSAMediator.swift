@@ -601,9 +601,7 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
             
             let msaGraph = WeightedGraph<String, Float>.init(vertices: Array(allVerticesInMSA))
             self.componentsMSA[component.id]?.forEach { edge in
-                let indexOfU = msaGraph.indexOfVertex(self.componentsGraph[edge.u])!
-                let indexOfV = msaGraph.indexOfVertex(self.componentsGraph[edge.v])!
-                msaGraph.addEdge(.init(u: indexOfU, v: indexOfV, directed: edge.directed, weight: edge.weight), directed: true)
+                msaGraph.addEdge(from: self.componentsGraph[edge.u], to: self.componentsGraph[edge.v], weight: 1.0, directed: true)
             }
 
             if msaGraph.vertices.count > 0 {
