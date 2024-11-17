@@ -163,6 +163,10 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
     ///
     /// - Complexity: time: O(V²), to find the component index and remove it from the dependency lists. Called unfrequently and worst case is not common.
     public func unregister(_ component: any Component) {
+        self.loggerLock.wait()
+        self.logger.log(level: .debug, "ⓘ Unregistering \(component.id)")
+        self.loggerLock.signal()
+
         self.componentsIDMapLock.wait()
         guard self.componentsIDMap[component.id] != nil else {
             componentsIDMapLock.signal()
@@ -221,24 +225,12 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         self.componentsMSALock.wait()
         self.scheduleMSAUpdateLock.wait()
         self.componentsIDMapLock.wait()
-        self.componentsGraph.forEach { componentID in
-            if let otherComponent = self.componentsIDMap[componentID] {
+        
+        self.componentsGraph.forEach { otherComponentID in
+            if let otherComponent = self.componentsIDMap[otherComponentID] {
                 self.updateMSAIfNeeded(of: otherComponent)
                 
-                if let msa = self.componentsMSA[componentID] {
-                    self.componentsGraphLock.signal()
-                    self.componentsMSALock.signal()
-                    self.scheduleMSAUpdateLock.signal()
-                    self.componentsIDMapLock.signal()
-                    
-                    print(self.MSAToDOT(for: otherComponent))
-                    
-                    self.componentsGraphLock.wait()
-                    self.componentsMSALock.wait()
-                    self.scheduleMSAUpdateLock.wait()
-                    self.componentsIDMapLock.wait()
-                    
-                    
+                if let msa = self.componentsMSA[otherComponentID] {
                     msa.forEach { msaEdge in
                         assert(self.componentsGraph[msaEdge.u] != component.id, "Component \(component.id) still in msa of \(self.componentsGraph[msaEdge.u])")
                         assert(self.componentsGraph[msaEdge.v] != component.id, "Component \(component.id) still in msa of \(self.componentsGraph[msaEdge.v])")
@@ -504,6 +496,7 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
                 """)
             }
         }
+        self.componentsGraphLock.signal()
         self.componentsGraphLock.signal()
         
         DOTTree.append("}")
