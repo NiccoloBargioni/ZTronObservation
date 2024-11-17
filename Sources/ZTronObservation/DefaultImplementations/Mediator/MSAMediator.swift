@@ -586,17 +586,17 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
 
             self.componentsMSA[component.id] = try! self.componentsGraph.msa(root: vertexID)
             
-            var allVerticesInMSA: Set<Int> = .init()
+            var allVerticesInMSA: Set<String> = .init()
             
             self.componentsMSA[component.id]?.forEach { edge in
-                allVerticesInMSA.insert(edge.u)
-                allVerticesInMSA.insert(edge.v)
+                allVerticesInMSA.insert(self.componentsGraph[edge.u])
+                allVerticesInMSA.insert(self.componentsGraph[edge.v])
             }
             
-            let msaGraph = WeightedGraph<Int, Float>.init(vertices: Array(allVerticesInMSA))
+            let msaGraph = WeightedGraph<String, Float>.init(vertices: Array(allVerticesInMSA))
             self.componentsMSA[component.id]?.forEach { edge in
-                let indexOfU = msaGraph.indexOfVertex(edge.u)!
-                let indexOfV = msaGraph.indexOfVertex(edge.v)!
+                let indexOfU = msaGraph.indexOfVertex(self.componentsGraph[edge.u])!
+                let indexOfV = msaGraph.indexOfVertex(self.componentsGraph[edge.v])!
                 msaGraph.addEdge(.init(u: indexOfU, v: indexOfV, directed: edge.directed, weight: edge.weight), directed: true)
             }
 
@@ -604,7 +604,7 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
                 assert(msaGraph.isDAG == true)
                 assert(msaGraph.findTreeRoot() != nil)
                 let treeRoot = msaGraph.findTreeRoot()!
-                let rootID = self.componentsGraph[treeRoot]
+                let rootID = msaGraph[treeRoot]
                 
                 assert(rootID == component.id)
             }
