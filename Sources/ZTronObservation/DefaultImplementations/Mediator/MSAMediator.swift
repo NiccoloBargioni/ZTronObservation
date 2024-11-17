@@ -52,7 +52,7 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
             if componentExists {
                 #if DEBUG
                 self.loggerLock.wait()
-                self.logger.warning("Attempted to register a component with the same id of another that's already part of the notification subsystem. Replacing.")
+                self.logger.warning("Attempted to register \(component.id) with the same id of another that's already part of the notification subsystem. Replacing.")
                 self.loggerLock.signal()
                 #endif
                 self.unregister(component)
@@ -61,7 +61,7 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
             if componentExists {
                 #if DEBUG
                 self.loggerLock.wait()
-                self.logger.warning("Attempted to register a component with the same id of another that's already part of the notification subsystem. Ignoring.")
+                self.logger.warning("Attempted to register \(component.id) with the same id of another that's already part of the notification subsystem. Ignoring.")
                 self.loggerLock.signal()
                 #endif
                 return
@@ -226,9 +226,14 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         self.scheduleMSAUpdateLock.wait()
         self.componentsIDMapLock.wait()
         
+        self.componentsGraphLock.signal()
+        print(self.toDOT())
+        self.componentsGraphLock.wait()
+        
         self.componentsGraph.forEach { otherComponentID in
             if let otherComponent = self.componentsIDMap[otherComponentID] {
                 // FIXME: DUMMY FORCE UPDATE OF MSA
+                
                 self.scheduleMSAUpdate[otherComponentID] = true
                 self.updateMSAIfNeeded(of: otherComponent)
                 
@@ -341,6 +346,7 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
             self.loggerLock.wait()
             self.logger.error("⚠️ Attempting to attach \(origin) → \(dest), which is a self loop. This is not allowed.")
             self.loggerLock.signal()
+            return
         }
         
         #if DEBUG
@@ -470,6 +476,7 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
     }
     
     /// A function that converts the components graph in its DOT description, where an arrow componentA → componentB means that componentA sends notifications to componentB, or equivalently, componentB signalled insterest in componentA
+    /// - componentsGraphLock
     public func toDOT(_ graphName: String = "componentsGraph") -> String {
         var DOTTree = String("digraph \"\(graphName)\" {\n")
         
@@ -498,7 +505,6 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
                 """)
             }
         }
-        self.componentsGraphLock.signal()
         self.componentsGraphLock.signal()
         
         DOTTree.append("}")
