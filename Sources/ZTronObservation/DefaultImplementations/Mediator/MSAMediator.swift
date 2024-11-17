@@ -187,6 +187,23 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         self.loggerLock.wait()
         self.logger.log(level: .debug, "✓ Component \(component.id) unregistered")
         self.loggerLock.signal()
+
+        self.componentsGraphLock.wait()
+        self.componentsGraph.forEach { componentID in
+            assert(componentID != component.id)
+        }
+
+        self.componentsMSALock.wait()
+        self.componentsGraph.forEach { componentID in
+            if let msa = self.componentsMSA[componentID] {
+                msa.forEach { msaEdge in
+                    assert(self.componentsGraph[msaEdge.u] != component.id)
+                    assert(self.componentsGraph[msaEdge.v] != component.id)
+                }
+            }
+        }
+        self.componentsMSALock.signal()
+        self.componentsGraphLock.signal()
         #endif
     }
     
