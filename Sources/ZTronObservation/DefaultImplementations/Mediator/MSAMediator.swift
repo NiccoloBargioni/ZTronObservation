@@ -60,7 +60,12 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
                 self.logger.warning("Attempted to register \(component.id) with the same id of another that's already part of the notification subsystem. Replacing.")
                 self.loggerLock.signal()
                 #endif
-                self.unregister(component)
+                self.componentsIDMapLock.wait()
+                let oldComponentWithSameID = self.componentsIDMap[component.id]
+                self.componentsIDMapLock.signal()
+                if let oldComponentWithSameID = oldComponentWithSameID {
+                    self.unregister(oldComponentWithSameID)
+                }
             }
         } else {
             if componentExists {
