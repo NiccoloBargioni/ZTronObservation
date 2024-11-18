@@ -209,8 +209,6 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
             }
         }
          */
-        
-        self.componentsGraph.removeVertex(component.id)
         self.componentsGraphLock.signal()
         
         self.componentsIDMap[component.id] = nil
@@ -228,8 +226,10 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         self.loggerLock.wait()
         self.logger.log(level: .debug, "✓ Component \(component.id) unregistered")
         self.loggerLock.signal()
-
+        
         self.componentsGraphLock.wait()
+        self.componentsGraph.removeVertex(component.id)
+
         self.componentsGraph.forEach { componentID in
             assert(componentID != component.id)
         }
