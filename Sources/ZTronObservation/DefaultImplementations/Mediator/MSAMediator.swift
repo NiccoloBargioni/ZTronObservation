@@ -12,7 +12,7 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
     private var componentsMSA = [ String: [E] ].init()
     
     // A map that associates `key` component to all the other components that have an imbound edge coming from `key`
-    private var flatDependencyMap = [String: [String]].init()
+    // private var flatDependencyMap = [String: [String]].init()
     private var scheduleMSAUpdate = [String: Bool].init()
     private var isRegisteringComponent: Bool = false
     
@@ -79,7 +79,7 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         
         self.componentsIDMap[component.id] = component
         self.componentsMSA[component.id] = [E].init()
-        self.flatDependencyMap[component.id] = [String].init()
+        // self.flatDependencyMap[component.id] = [String].init()
         self.scheduleMSAUpdate[component.id] = true
         
         self.componentsIDMapLock.signal()
@@ -175,6 +175,7 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         
         // only direct dependencies will receive a `.willCheckout(_:)`
         self.flatDependencyMapLock.wait()
+        /*
         if let dependencies = self.flatDependencyMap[component.id] {
             dependencies.forEach { dependency in
                 if self.componentsIDMap[dependency]?.id != component.id {
@@ -182,6 +183,7 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
                 }
             }
         }
+         */
         
         self.scheduleMSAUpdateLock.wait()
         self.markMSAForUpdates(from: component.id)
@@ -192,9 +194,11 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         componentsGraph.edgesForVertex(component.id)?.forEach { edge in
             let dest = self.componentsGraph.vertices[edge.v]
             
+            /*
             self.flatDependencyMap[dest]?.removeAll { dependencyID in
                 return dependencyID == component.id
             }
+             */
         }
 
         
@@ -208,7 +212,7 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         self.componentsMSA[component.id] = nil
         self.componentsMSALock.signal()
         
-        self.flatDependencyMap[component.id] = nil
+        // self.flatDependencyMap[component.id] = nil
         self.flatDependencyMapLock.signal()
 
         
@@ -381,12 +385,14 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         }
         self.isRegisteringComponentLock.signal()
         
+        /*
         if self.flatDependencyMap[dest] == nil {
             self.flatDependencyMap[dest] = [String].init()
         }
         
         self.flatDependencyMap[dest]?.append(origin)
-        
+        */
+         
         self.flatDependencyMapLock.signal()
         
         self.scheduleMSAUpdateLock.wait()
@@ -402,6 +408,10 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
     /// - Note: Needs testing when loops in the components graph exist.
     ///
     /// - Complexity: time: O(V), space: O(1)
+    ///
+    /// - componentsGraphLock
+    /// - componentsIDMapLock
+    /// - scheduleMSAUpdateLock
     private func markMSAForUpdates(from: String) {
         guard self.componentsIDMap[from] != nil else { return }
         
@@ -413,11 +423,32 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         self.loggerLock.signal()
         #endif
         
+        let reverseGraph = self.componentsGraph.reversed()
+        
+        guard reverseGraph.indexOfVertex(from) != nil else {
+            #if DEBUG
+            self.loggerLock.wait()
+            self.logger.error("Could not find origin \(from) to mark reachable components' MSA for update.")
+            self.loggerLock.signal()
+            #endif
+            fatalError()
+        }
+        
+        let reachableComponents = reverseGraph.bfs(from: from) { _ in
+            return false
+        }
+        
+        reachableComponents.forEach { reachableEdge in
+            self.scheduleMSAUpdate[reverseGraph[reachableEdge.v]] = true
+        }
+        
+        /*
         self.flatDependencyMap[from]?.forEach { parent in
             if self.scheduleMSAUpdate[parent] == false { // An attempt to break possible loops
                 self.markMSAForUpdates(from: parent)
             }
         }
+         */
     }
     
     
