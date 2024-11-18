@@ -255,7 +255,7 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         var componentsToNotify: [(any Component, any Component)] = .init()
         
         self.componentsMSA[sourceID]?.forEach { edge in
-            if edge.u > self.componentsGraph.vertexCount {
+            if edge.u >= self.componentsGraph.vertexCount {
                 self.scheduleMSAUpdate[sourceID] = true
                 return
             } else {
