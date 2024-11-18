@@ -192,7 +192,6 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         self.scheduleMSAUpdateLock.signal()
         
         /*
-
         componentsGraph.edgesForVertex(component.id)?.forEach { edge in
             let dest = self.componentsGraph.vertices[edge.v]
             
@@ -448,7 +447,9 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         #endif
         
         reachableComponents.forEach { reachableEdge in
-            self.scheduleMSAUpdate[reverseGraph[reachableEdge.v]] = true
+            if reverseGraph[reachableEdge.v] != from {
+                self.scheduleMSAUpdate[reverseGraph[reachableEdge.v]] = true
+            }
         }
         
         /*
