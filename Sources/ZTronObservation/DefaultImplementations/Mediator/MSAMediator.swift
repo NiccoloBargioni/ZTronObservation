@@ -227,24 +227,6 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         self.componentsMSALock.wait()
         self.componentsIDMapLock.wait()
         
-          
-        self.componentsGraph.forEach { otherComponentID in
-            if let otherComponent = self.componentsIDMap[otherComponentID] {
-                self.updateMSAIfNeeded(of: otherComponent)
-                
-                assert(otherComponentID != component.id)
-                
-                if let msa = self.componentsMSA[otherComponentID] {
-                    msa.forEach { msaEdge in
-                        /*
-                        assert(self.componentsGraph[msaEdge.u] != component.id, "Component \(component.id) still in msa of \(self.componentsGraph[msaEdge.u])")
-                         */
-                        assert(self.componentsGraph[msaEdge.v] != component.id, "Component \(component.id) still in msa of \(self.componentsGraph[msaEdge.v])")
-                    }
-                }
-            }
-        }
-        
         self.componentsIDMapLock.signal()
         self.scheduleMSAUpdateLock.signal()
         self.componentsMSALock.signal()
