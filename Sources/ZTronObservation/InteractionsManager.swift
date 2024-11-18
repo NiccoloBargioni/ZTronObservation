@@ -15,7 +15,7 @@ public protocol InteractionsManager: Sendable {
     
     /// Use this method to do preliminary operations that are required to integrate `owner` in the notification subsystem, such as configuring oneself according
     /// to the current state of other components.
-    func setup()
+    func setup(or: OnRegisterConflict)
     
     
     /// Use this method to reset the part of state that depends on a component `owner` depends upon when it unregisters from the notification subsystem.
