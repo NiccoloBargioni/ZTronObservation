@@ -185,22 +185,22 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         }
          */
         
+        self.componentsGraphLock.wait()
         self.scheduleMSAUpdateLock.wait()
         self.markMSAForUpdates(from: component.id)
         self.scheduleMSAUpdate[component.id] = nil
         self.scheduleMSAUpdateLock.signal()
         
-        self.componentsGraphLock.wait()
+        /*
+
         componentsGraph.edgesForVertex(component.id)?.forEach { edge in
             let dest = self.componentsGraph.vertices[edge.v]
             
-            /*
             self.flatDependencyMap[dest]?.removeAll { dependencyID in
                 return dependencyID == component.id
             }
-             */
         }
-
+         */
         
         self.componentsGraph.removeVertex(component.id)
         self.componentsGraphLock.signal()
@@ -434,9 +434,18 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
             fatalError()
         }
         
-        let reachableComponents = reverseGraph.bfs(from: from) { _ in
+        #if DEBUG
+        self.loggerLock.wait()
+        #endif
+        let reachableComponents = reverseGraph.bfs(from: from) { reachableComponent in
+            #if DEBUG
+            self.logger.info("\(reachableComponent) reachable from \(from) and marked for MSA update")
+            #endif
             return false
         }
+        #if DEBUG
+        self.loggerLock.signal()
+        #endif
         
         reachableComponents.forEach { reachableEdge in
             self.scheduleMSAUpdate[reverseGraph[reachableEdge.v]] = true
@@ -633,7 +642,7 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
                 assert(msaGraph.isDAG == true)
                 assert(msaGraph.findTreeRoot() != nil)
                 
-                var treeRootID: String? = msaGraph.vertices.first { componentID in
+                let treeRootID: String? = msaGraph.vertices.first { componentID in
                     let index = msaGraph.indexOfVertex(componentID)
                     if let index = index {
                         let indegreeOfComponent = msaGraph.indegreeOfVertex(at: index)
