@@ -44,6 +44,11 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         _ component: any Component,
         or: OnRegisterConflict = .replace
     ) {
+        #if DEBUG
+        self.loggerLock.wait()
+        self.logger.info("ⓘ Registering \(component.id)")
+        self.loggerLock.signal()
+        #endif
         self.componentsIDMapLock.wait()
         let componentExists: Bool = componentsIDMap[component.id] != nil
         self.componentsIDMapLock.signal()
