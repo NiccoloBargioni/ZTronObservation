@@ -189,7 +189,6 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         self.scheduleMSAUpdateLock.wait()
         self.markMSAForUpdates(from: component.id)
         self.scheduleMSAUpdate[component.id] = nil
-        self.scheduleMSAUpdateLock.signal()
         
         /*
         componentsGraph.edgesForVertex(component.id)?.forEach { edge in
@@ -226,7 +225,6 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         }
 
         self.componentsMSALock.wait()
-        self.scheduleMSAUpdateLock.wait()
         self.componentsIDMapLock.wait()
         
           
@@ -242,6 +240,7 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
                 }
             }
         }
+        
         self.componentsIDMapLock.signal()
         self.scheduleMSAUpdateLock.signal()
         self.componentsMSALock.signal()
@@ -424,7 +423,7 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         
         let reverseGraph = self.componentsGraph.reversed()
         
-        guard reverseGraph.indexOfVertex(from) != nil else {
+        guard let reversedFrom = reverseGraph.indexOfVertex(from) else {
             #if DEBUG
             self.loggerLock.wait()
             self.logger.error("Could not find origin \(from) to mark reachable components' MSA for update.")
@@ -436,22 +435,19 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         #if DEBUG
         self.loggerLock.wait()
         #endif
-        let reachableComponents = reverseGraph.bfs(from: from) { reachableComponent in
+        let reachableComponents = try! reverseGraph.msa(root: reversedFrom)
+        reachableComponents.forEach { reachableComponent in
+            let reachable = reverseGraph[reachableComponent.v]
             #if DEBUG
-            self.logger.info("\(reachableComponent) reachable from \(from) and marked for MSA update")
+            self.logger.info("\(reachable) reachable from \(from) and scheduled for update")
             #endif
-            return false
+            self.scheduleMSAUpdate[reachable] = true
         }
+        
         #if DEBUG
         self.loggerLock.signal()
         #endif
-        
-        reachableComponents.forEach { reachableEdge in
-            if reverseGraph[reachableEdge.v] != from {
-                self.scheduleMSAUpdate[reverseGraph[reachableEdge.v]] = true
-            }
-        }
-        
+                
         /*
         self.flatDependencyMap[from]?.forEach { parent in
             if self.scheduleMSAUpdate[parent] == false { // An attempt to break possible loops
