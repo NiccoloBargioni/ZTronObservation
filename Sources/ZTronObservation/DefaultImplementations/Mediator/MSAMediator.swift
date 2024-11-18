@@ -23,6 +23,7 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
     private let componentsIDMapLock = DispatchSemaphore(value: 1)
     private let scheduleMSAUpdateLock = DispatchSemaphore(value: 1)
     private let loggerLock = DispatchSemaphore(value: 1)
+    private let sequentialAccessLock = DispatchSemaphore(value: 1)
 
     public init() {  }
     
@@ -41,6 +42,7 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         _ component: any Component,
         or: OnRegisterConflict = .replace
     ) {
+        self.sequentialAccessLock.wait()
         #if DEBUG
         self.loggerLock.wait()
         self.logger.info("ⓘ Registering \(component.id)")
@@ -72,7 +74,9 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
                 #endif
                 
                 if let oldComponentWithSameID = oldComponentWithSameID {
+                    self.sequentialAccessLock.signal()
                     self.unregister(oldComponentWithSameID)
+                    self.sequentialAccessLock.wait()
                 }
             }
         } else {
@@ -82,6 +86,7 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
                 self.logger.warning("Attempted to register \(component.id) with the same id of another that's already part of the notification subsystem. Ignoring.")
                 self.loggerLock.signal()
                 #endif
+                self.sequentialAccessLock.signal()
                 return
             }
         }
@@ -113,17 +118,19 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
             self.componentsIDMapLock.wait()
             guard let other = self.componentsIDMap[componentID] else {
                 self.componentsIDMapLock.signal()
-                
+                self.sequentialAccessLock.signal()
                 fatalError("Component \(componentID) has no associated components in MSAMediator map.")
             }
             self.componentsIDMapLock.signal()
             
 
             guard let otherDelegate = (other.getDelegate() as? (any MSAInteractionsManager)) else {
+                self.sequentialAccessLock.signal()
                 fatalError("Component \(componentID) is expected to have delegate of type any \(String(describing: Self.self))")
             }
             
             guard let delegate = (component.getDelegate() as? (any MSAInteractionsManager)) else {
+                self.sequentialAccessLock.signal()
                 fatalError("New component \(component.id) is expected to have delegate of type any \(String(describing: Self.self))")
             }
             
@@ -138,6 +145,8 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         self.logger.log(level: .debug, "✓ Component \(component.id) registered")
         self.loggerLock.signal()
         #endif
+        
+        self.sequentialAccessLock.signal()
     }
     
     
@@ -159,13 +168,15 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
     ///
     /// - Complexity: time: O(V²), to find the component index and remove it from the dependency lists. Called unfrequently and worst case is not common.
     public func unregister(_ component: any Component) {
+        self.sequentialAccessLock.wait()
         self.loggerLock.wait()
         self.logger.log(level: .debug, "ⓘ Unregistering \(component.id)")
         self.loggerLock.signal()
 
         self.componentsIDMapLock.wait()
         guard self.componentsIDMap[component.id] != nil else {
-            componentsIDMapLock.signal()
+            self.componentsIDMapLock.signal()
+            self.sequentialAccessLock.signal()
             fatalError("Attempted to unregister \(component.id), that isn't a registered component.")
         }
                 
@@ -204,6 +215,8 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         self.componentsMSALock.signal()
         self.componentsGraphLock.signal()
         #endif
+        
+        self.sequentialAccessLock.signal()
     }
     
     
@@ -217,6 +230,7 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
     ///
     /// - Complexity: Time: O(E + V·log(V)), Space: O(E+V). Though in most cases time is O(V)
     public func pushNotification(eventArgs: BroadcastArgs) {
+        self.sequentialAccessLock.wait()
         let sourceID = eventArgs.getSource().id
         
         #if DEBUG
@@ -271,6 +285,8 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         componentsToNotify.forEach { component, dependency in
             component.getDelegate()?.notify(args: MSAArgs(root: eventArgs.getSource(), from: dependency))
         }
+        
+        self.sequentialAccessLock.signal()
     }
     
 
