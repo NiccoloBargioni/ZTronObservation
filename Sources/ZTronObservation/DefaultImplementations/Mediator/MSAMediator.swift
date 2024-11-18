@@ -66,6 +66,7 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
                 if let oldComponentWithSameID = oldComponentWithSameID {
                     self.unregister(oldComponentWithSameID)
                 }
+                self.register(component)
             }
         } else {
             if componentExists {
