@@ -61,7 +61,7 @@ public protocol MSAInteractionsManager: InteractionsManager {
 
 
 public extension MSAInteractionsManager {
-    func setup() {
+    func setup(or: OnRegisterConflict = .replace) {
         guard let mediator = self.getMediator() as? MSAMediator,
               let owner = self.getOwner() else { fatalError() }
         
