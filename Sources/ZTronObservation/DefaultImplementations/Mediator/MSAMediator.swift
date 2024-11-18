@@ -114,6 +114,7 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
             self.componentsGraphLock.signal()
         }
         
+        self.sequentialAccessLock.signal()
         self.componentsGraph.forEach { componentID in
             self.componentsIDMapLock.wait()
             guard let other = self.componentsIDMap[componentID] else {
@@ -145,8 +146,6 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         self.logger.log(level: .debug, "✓ Component \(component.id) registered")
         self.loggerLock.signal()
         #endif
-        
-        self.sequentialAccessLock.signal()
     }
     
     
