@@ -226,15 +226,9 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         self.scheduleMSAUpdateLock.wait()
         self.componentsIDMapLock.wait()
         
-        self.componentsGraphLock.signal()
-        print(self.toDOT())
-        self.componentsGraphLock.wait()
-        
+          
         self.componentsGraph.forEach { otherComponentID in
             if let otherComponent = self.componentsIDMap[otherComponentID] {
-                // FIXME: DUMMY FORCE UPDATE OF MSA
-                
-                self.scheduleMSAUpdate[otherComponentID] = true
                 self.updateMSAIfNeeded(of: otherComponent)
                 
                 if let msa = self.componentsMSA[otherComponentID] {
