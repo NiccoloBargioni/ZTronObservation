@@ -254,6 +254,38 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         
         var componentsToNotify: [(any Component, any Component)] = .init()
         
+        for edge in componentsMSA[sourceID] ?? [] {
+            if edge.u >= self.componentsGraph.vertexCount {
+                self.scheduleMSAUpdate[sourceID] = true
+                self.updateMSAIfNeeded(of: eventArgs.getSource())
+                self.componentsIDMapLock.signal()
+                self.componentsGraphLock.signal()
+                self.componentsMSALock.signal()
+                self.scheduleMSAUpdateLock.signal()
+                self.pushNotification(eventArgs: eventArgs)
+            } else {
+                guard let dependency = self.componentsIDMap[ self.componentsGraph.vertices[edge.u] ] else {
+                    self.componentsMSALock.signal()
+                    self.componentsIDMapLock.signal()
+                    self.componentsGraphLock.signal()
+                    fatalError("Component \(self.componentsGraph.vertices[edge.u]) is not a valid component.")
+                }
+                guard let componentToNotify = self.componentsIDMap[ self.componentsGraph.vertices[edge.v] ] else {
+                    self.componentsIDMapLock.signal()
+                    self.componentsGraphLock.signal()
+                    self.componentsMSALock.signal()
+                    fatalError("Component \(self.componentsGraph.vertices[edge.v]) is not a valid component.")
+                }
+                
+                #if DEBUG
+                self.loggerLock.wait()
+                self.logger.log(level: .debug, "ⓘ Sending notification \(sourceID) → \(componentToNotify.id)")
+                self.loggerLock.signal()
+                #endif
+
+                componentsToNotify.append((componentToNotify, dependency))
+            }
+        }
         self.componentsMSA[sourceID]?.forEach { edge in
             if edge.u >= self.componentsGraph.vertexCount {
                 self.scheduleMSAUpdate[sourceID] = true
