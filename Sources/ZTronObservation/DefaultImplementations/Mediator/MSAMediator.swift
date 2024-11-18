@@ -254,38 +254,6 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         
         var componentsToNotify: [(any Component, any Component)] = .init()
         
-        for edge in componentsMSA[sourceID] ?? [] {
-            if edge.u >= self.componentsGraph.vertexCount {
-                self.scheduleMSAUpdate[sourceID] = true
-                self.updateMSAIfNeeded(of: eventArgs.getSource())
-                self.componentsIDMapLock.signal()
-                self.componentsGraphLock.signal()
-                self.componentsMSALock.signal()
-                self.scheduleMSAUpdateLock.signal()
-                self.pushNotification(eventArgs: eventArgs)
-            } else {
-                guard let dependency = self.componentsIDMap[ self.componentsGraph.vertices[edge.u] ] else {
-                    self.componentsMSALock.signal()
-                    self.componentsIDMapLock.signal()
-                    self.componentsGraphLock.signal()
-                    fatalError("Component \(self.componentsGraph.vertices[edge.u]) is not a valid component.")
-                }
-                guard let componentToNotify = self.componentsIDMap[ self.componentsGraph.vertices[edge.v] ] else {
-                    self.componentsIDMapLock.signal()
-                    self.componentsGraphLock.signal()
-                    self.componentsMSALock.signal()
-                    fatalError("Component \(self.componentsGraph.vertices[edge.v]) is not a valid component.")
-                }
-                
-                #if DEBUG
-                self.loggerLock.wait()
-                self.logger.log(level: .debug, "ⓘ Sending notification \(sourceID) → \(componentToNotify.id)")
-                self.loggerLock.signal()
-                #endif
-
-                componentsToNotify.append((componentToNotify, dependency))
-            }
-        }
         self.componentsMSA[sourceID]?.forEach { edge in
             if edge.u >= self.componentsGraph.vertexCount {
                 self.scheduleMSAUpdate[sourceID] = true
@@ -341,6 +309,7 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
     ///
     /// - Complexity: time: O(V), to recursively mark MSA of parents as needing update.
     public func signalInterest(_ asker: any Component, to: any Component, priority: Float = 1.0) {
+        self.sequentialAccessLock.wait()
         self.componentsIDMapLock.wait()
         guard let dest = self.componentsIDMap[ asker.id ]?.id,
               let origin = self.componentsIDMap[ to.id ]?.id else {
@@ -373,6 +342,7 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
             #endif
                 self.componentsGraphLock.signal()
                 self.componentsIDMapLock.signal()
+                self.sequentialAccessLock.signal()
                 return
             }
         }
@@ -388,6 +358,7 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         self.markMSAForUpdates(from: dest)
         self.componentsIDMapLock.signal()
         self.scheduleMSAUpdateLock.signal()
+        self.sequentialAccessLock.signal()
     }
     
     /// Starting from a valid component in the graph, it marks such component for MSA updates, then it marks all the nodes that have
@@ -451,9 +422,11 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
     /// When an interaction manager completes the setup procedure, it should invoke this method to allow all the components that are interested in it to
     /// update themselves based on the consisted, ready for updates, ready state of the caller.
     internal func componentDidConfigure(eventArgs: BroadcastArgs) {
+        self.sequentialAccessLock.wait()
         self.componentsIDMapLock.wait()
         guard let sourceComponent = self.componentsIDMap[eventArgs.getSource().id] else {
             self.componentsIDMapLock.signal()
+            self.sequentialAccessLock.signal()
             fatalError("Attempted to signal completion of initial configuration for component \(eventArgs.getSource().id), that is not a valid registered component.")
         }
         
@@ -494,6 +467,7 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         }
         self.componentsIDMapLock.signal()
         self.componentsMSALock.signal()
+        self.sequentialAccessLock.signal()
     }
     
     /// A function that converts the components graph in its DOT description, where an arrow componentA → componentB means that componentA sends notifications to componentB, or equivalently, componentB signalled insterest in componentA
