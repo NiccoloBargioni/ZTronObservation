@@ -63,8 +63,8 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
                 
                 #if DEBUG
                 self.loggerLock.wait()
-                if oldComponentWithSameID === componentsGraph {
-                    self.logger.log("Attempting to .replace a component \(component.id) with itself.")
+                if oldComponentWithSameID === component {
+                    self.logger.log("Attempting to .replace a component \(component.id) with a referentially equal component..")
                 } else {
                     self.logger.log("Attempting to .replace a component \(component.id) with a referentially different component.")
                 }
