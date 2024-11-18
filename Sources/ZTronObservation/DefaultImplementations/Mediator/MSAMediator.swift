@@ -255,26 +255,31 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         var componentsToNotify: [(any Component, any Component)] = .init()
         
         self.componentsMSA[sourceID]?.forEach { edge in
-            guard let dependency = self.componentsIDMap[ self.componentsGraph.vertices[edge.u] ] else {
-                self.componentsMSALock.signal()
-                self.componentsIDMapLock.signal()
-                self.componentsGraphLock.signal()
-                fatalError("Component \(self.componentsGraph.vertices[edge.u]) is not a valid component.")
-            }
-            guard let componentToNotify = self.componentsIDMap[ self.componentsGraph.vertices[edge.v] ] else {
-                self.componentsIDMapLock.signal()
-                self.componentsGraphLock.signal()
-                self.componentsMSALock.signal()
-                fatalError("Component \(self.componentsGraph.vertices[edge.v]) is not a valid component.")
-            }
-            
-            #if DEBUG
-            self.loggerLock.wait()
-            self.logger.log(level: .debug, "ⓘ Sending notification \(sourceID) → \(componentToNotify.id)")
-            self.loggerLock.signal()
-            #endif
+            if edge.u > self.componentsGraph.vertexCount {
+                self.scheduleMSAUpdate[sourceID] = true
+                return
+            } else {
+                guard let dependency = self.componentsIDMap[ self.componentsGraph.vertices[edge.u] ] else {
+                    self.componentsMSALock.signal()
+                    self.componentsIDMapLock.signal()
+                    self.componentsGraphLock.signal()
+                    fatalError("Component \(self.componentsGraph.vertices[edge.u]) is not a valid component.")
+                }
+                guard let componentToNotify = self.componentsIDMap[ self.componentsGraph.vertices[edge.v] ] else {
+                    self.componentsIDMapLock.signal()
+                    self.componentsGraphLock.signal()
+                    self.componentsMSALock.signal()
+                    fatalError("Component \(self.componentsGraph.vertices[edge.v]) is not a valid component.")
+                }
+                
+                #if DEBUG
+                self.loggerLock.wait()
+                self.logger.log(level: .debug, "ⓘ Sending notification \(sourceID) → \(componentToNotify.id)")
+                self.loggerLock.signal()
+                #endif
 
-            componentsToNotify.append((componentToNotify, dependency))
+                componentsToNotify.append((componentToNotify, dependency))
+            }
         }
         
         self.componentsMSALock.signal()
