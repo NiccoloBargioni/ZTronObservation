@@ -434,7 +434,7 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
     
     /// When an interaction manager completes the setup procedure, it should invoke this method to allow all the components that are interested in it to
     /// update themselves based on the consisted, ready for updates, ready state of the caller.
-    internal func componentDidConfigure(eventArgs: BroadcastArgs) {
+    public final func componentDidConfigure(eventArgs: BroadcastArgs) {
         self.sequentialAccessLock.wait()
         self.componentsIDMapLock.wait()
         guard let sourceComponent = self.componentsIDMap[eventArgs.getSource().id] else {
