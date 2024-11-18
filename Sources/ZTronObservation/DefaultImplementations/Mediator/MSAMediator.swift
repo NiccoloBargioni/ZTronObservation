@@ -14,7 +14,6 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
     // A map that associates `key` component to all the other components that have an imbound edge coming from `key`
     // private var flatDependencyMap = [String: [String]].init()
     private var scheduleMSAUpdate = [String: Bool].init()
-    private var isRegisteringComponent: Bool = false
     
     private let logger = Logger(subsystem: "ZTronObservation", category: "MSAMediator")
     
@@ -22,9 +21,7 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
     private let componentsGraphLock = DispatchSemaphore(value: 1)
     private let componentsMSALock = DispatchSemaphore(value: 1)
     private let componentsIDMapLock = DispatchSemaphore(value: 1)
-    private let flatDependencyMapLock = DispatchSemaphore(value: 1)
     private let scheduleMSAUpdateLock = DispatchSemaphore(value: 1)
-    private let isRegisteringComponentLock = DispatchSemaphore(value: 1)
     private let loggerLock = DispatchSemaphore(value: 1)
 
     public init() {  }
@@ -63,10 +60,20 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
                 self.componentsIDMapLock.wait()
                 let oldComponentWithSameID = self.componentsIDMap[component.id]
                 self.componentsIDMapLock.signal()
+                
+                #if DEBUG
+                self.loggerLock.wait()
+                if oldComponentWithSameID === componentsGraph {
+                    self.logger.log("Attempting to .replace a component \(component.id) with itself.")
+                } else {
+                    self.logger.log("Attempting to .replace a component \(component.id) with a referentially different component.")
+                }
+                self.loggerLock.signal()
+                #endif
+                
                 if let oldComponentWithSameID = oldComponentWithSameID {
                     self.unregister(oldComponentWithSameID)
                 }
-                self.register(component)
             }
         } else {
             if componentExists {
@@ -79,23 +86,16 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
             }
         }
         
-        self.isRegisteringComponentLock.wait()
-        self.isRegisteringComponent = true
-        self.isRegisteringComponentLock.signal()
-        
         self.componentsIDMapLock.wait()
         self.componentsMSALock.wait()
-        self.flatDependencyMapLock.wait()
         self.scheduleMSAUpdateLock.wait()
         
         self.componentsIDMap[component.id] = component
         self.componentsMSA[component.id] = [E].init()
-        // self.flatDependencyMap[component.id] = [String].init()
         self.scheduleMSAUpdate[component.id] = true
         
         self.componentsIDMapLock.signal()
         self.scheduleMSAUpdateLock.signal()
-        self.flatDependencyMapLock.signal()
         self.componentsMSALock.signal()
 
         
@@ -114,27 +114,16 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
             guard let other = self.componentsIDMap[componentID] else {
                 self.componentsIDMapLock.signal()
                 
-                self.isRegisteringComponentLock.wait()
-                self.isRegisteringComponent = false
-                self.isRegisteringComponentLock.signal()
-                
                 fatalError("Component \(componentID) has no associated components in MSAMediator map.")
             }
             self.componentsIDMapLock.signal()
             
 
             guard let otherDelegate = (other.getDelegate() as? (any MSAInteractionsManager)) else {
-                self.isRegisteringComponentLock.wait()
-                self.isRegisteringComponent = false
-                self.isRegisteringComponentLock.signal()
                 fatalError("Component \(componentID) is expected to have delegate of type any \(String(describing: Self.self))")
             }
             
             guard let delegate = (component.getDelegate() as? (any MSAInteractionsManager)) else {
-                self.isRegisteringComponentLock.wait()
-                self.isRegisteringComponent = false
-                self.isRegisteringComponentLock.signal()
-
                 fatalError("New component \(component.id) is expected to have delegate of type any \(String(describing: Self.self))")
             }
             
@@ -149,10 +138,6 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         self.logger.log(level: .debug, "✓ Component \(component.id) registered")
         self.loggerLock.signal()
         #endif
-        
-        self.isRegisteringComponentLock.wait()
-        self.isRegisteringComponent = false
-        self.isRegisteringComponentLock.signal()
     }
     
     
@@ -183,33 +168,12 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
             componentsIDMapLock.signal()
             fatalError("Attempted to unregister \(component.id), that isn't a registered component.")
         }
-        
-        // only direct dependencies will receive a `.willCheckout(_:)`
-        self.flatDependencyMapLock.wait()
-        /*
-        if let dependencies = self.flatDependencyMap[component.id] {
-            dependencies.forEach { dependency in
-                if self.componentsIDMap[dependency]?.id != component.id {
-                    self.componentsIDMap[dependency]?.getDelegate()?.willCheckout(args: BroadcastArgs(source: component))
-                }
-            }
-        }
-         */
-        
+                
         self.componentsGraphLock.wait()
         self.scheduleMSAUpdateLock.wait()
         self.markMSAForUpdates(from: component.id)
         self.scheduleMSAUpdate[component.id] = nil
         
-        /*
-        componentsGraph.edgesForVertex(component.id)?.forEach { edge in
-            let dest = self.componentsGraph.vertices[edge.v]
-            
-            self.flatDependencyMap[dest]?.removeAll { dependencyID in
-                return dependencyID == component.id
-            }
-        }
-         */
         self.componentsGraphLock.signal()
         
         self.componentsIDMap[component.id] = nil
@@ -219,9 +183,6 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         self.componentsMSA[component.id] = nil
         self.componentsMSALock.signal()
         
-        // self.flatDependencyMap[component.id] = nil
-        self.flatDependencyMapLock.signal()
-
         
         #if DEBUG
         self.loggerLock.wait()
@@ -348,11 +309,6 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         self.loggerLock.signal()
         #endif
 
-        self.isRegisteringComponentLock.wait()
-        if !self.isRegisteringComponent {
-            self.componentsGraphLock.wait()
-        }
-
         if let outboundEdgesOfOrigin = self.componentsGraph.edgesForVertex(origin) {
             if outboundEdgesOfOrigin.reduce(false, { destinationEdgeExists, nextEdge in
                 return destinationEdgeExists || self.componentsGraph[nextEdge.v] == dest
@@ -363,7 +319,6 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
                 self.loggerLock.signal()
             #endif
                 self.componentsGraphLock.signal()
-                self.isRegisteringComponentLock.signal()
                 self.componentsIDMapLock.signal()
                 return
             }
@@ -375,23 +330,8 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
             weight: priority,
             directed: true
         )
-        if !self.isRegisteringComponent {
-            self.componentsGraphLock.signal()
-        }
-        self.isRegisteringComponentLock.signal()
-        
-        /*
-        if self.flatDependencyMap[dest] == nil {
-            self.flatDependencyMap[dest] = [String].init()
-        }
-        
-        self.flatDependencyMap[dest]?.append(origin)
-        */
-         
-        self.flatDependencyMapLock.signal()
         
         self.scheduleMSAUpdateLock.wait()
-        self.flatDependencyMapLock.wait()
         self.markMSAForUpdates(from: dest)
         self.componentsIDMapLock.signal()
         self.scheduleMSAUpdateLock.signal()

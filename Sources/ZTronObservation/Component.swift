@@ -4,7 +4,7 @@ import Foundation
 /// It is recommended that `id` doesn't change between different instances of the same type, if it is required that only one
 /// component of the specified type can participate. In that case, it is appropriate to assign an ID that recalls the role of the component
 /// in the system. For instance a `TopbarComponent: Component` could be identified by a `topbar` string.
-public protocol Component: Identifiable, Hashable {
+public protocol Component: Identifiable, Hashable, AnyObject {
     var id: String { get }
 
     func getDelegate() -> (any InteractionsManager)?
