@@ -241,6 +241,20 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         
         self.componentsIDMapLock.wait()
         self.componentsGraphLock.wait()
+        
+        guard self.componentsIDMap[eventArgs.getSource().id] != nil && self.componentsGraph.indexOfVertex(eventArgs.getSource().id) != nil else {
+            #if DEBUG
+            self.loggerLock.wait()
+            self.logger.warning("Attempted to push notification from \(eventArgs.getSource().id), that's not a registered component. \(#function) aborted.")
+            self.loggerLock.signal()
+            #endif
+            
+            self.componentsIDMapLock.signal()
+            self.componentsGraphLock.signal()
+            self.sequentialAccessLock.signal()
+            return
+        }
+        
         self.componentsMSALock.wait()
         self.scheduleMSAUpdateLock.wait()
         self.updateMSAIfNeeded(of: eventArgs.getSource())
