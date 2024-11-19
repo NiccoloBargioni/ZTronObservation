@@ -185,6 +185,8 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
                 self.loggerLock.signal()
                 #endif
                 
+                self.sequentialAccessLock.signal()
+                self.componentsIDMapLock.signal()
                 return
             }
         }
