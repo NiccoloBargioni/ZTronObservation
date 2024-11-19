@@ -190,8 +190,20 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
                 return
             }
         }
-                
+        
+        self.componentsMSALock.wait()
         self.componentsGraphLock.wait()
+        
+        let componentsToCheckoutTo = self.componentsMSA[component.id]?.compactMap { edge in
+            if edge.v < componentsGraph.vertexCount {
+                return self.componentsIDMap[componentsGraph[edge.v]]
+            } else {
+                return nil
+            }
+        }
+        
+        self.componentsMSALock.signal()
+                
         self.scheduleMSAUpdateLock.wait()
         self.markMSAForUpdates(from: component.id)
         self.scheduleMSAUpdate[component.id] = nil
@@ -226,6 +238,10 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         self.componentsMSALock.signal()
         self.componentsGraphLock.signal()
         #endif
+        
+        componentsToCheckoutTo?.forEach { reachableComponent in
+            reachableComponent.getDelegate()?.willCheckout(args: BroadcastArgs(source: component))
+        }
         
         self.sequentialAccessLock.signal()
     }
