@@ -27,7 +27,7 @@ public protocol InteractionsManager: Sendable {
     
     
     /// Use this method to detach `owner` from the notification system.
-    func detach()
+    func detach(or: OnUnregisterConflict)
     
     
     /// Give access to the owner of this manager
@@ -43,10 +43,10 @@ public extension InteractionsManager {
         self.getMediator()?.pushNotification(eventArgs: eventArgs)
     }
     
-    func detach() {
+    func detach(or: OnUnregisterConflict = .fail) {
         guard let owner = self.getOwner() else { return }
 
-        self.getMediator()?.unregister(owner)
+        self.getMediator()?.unregister(owner, or: or)
     }
 }
 

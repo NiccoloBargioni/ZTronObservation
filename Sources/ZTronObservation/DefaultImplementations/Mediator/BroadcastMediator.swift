@@ -63,7 +63,7 @@ public final class BroadcastMediator: Mediator, @unchecked Sendable {
     /// - Note: This method is asynchronously executed on a serial queue with `.background` QoS.
     ///
     /// - Complexity: **Time**: O(listeners.count), **Memory**: O(1)
-    public func unregister(_ listener: any Component) {
+    public func unregister(_ listener: any Component, or: OnUnregisterConflict) {
         self.registerQueue.sync {
             self.listenersLock.wait()
             self.listeners.removeAll { subscriber in

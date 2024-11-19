@@ -166,7 +166,7 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
     /// - Note: The registered component's`willCheckout(_:)` must not invoke any mediator's method, otherwise a deadlock will result.
     ///
     /// - Complexity: time: O(V²), to find the component index and remove it from the dependency lists. Called unfrequently and worst case is not common.
-    public func unregister(_ component: any Component) {
+    public func unregister(_ component: any Component, or: OnUnregisterConflict = .fail) {
         self.sequentialAccessLock.wait()
         self.loggerLock.wait()
         self.logger.log(level: .debug, "ⓘ Unregistering \(component.id)")
@@ -174,9 +174,19 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
 
         self.componentsIDMapLock.wait()
         guard self.componentsIDMap[component.id] != nil else {
-            self.componentsIDMapLock.signal()
-            self.sequentialAccessLock.signal()
-            fatalError("Attempted to unregister \(component.id), that isn't a registered component.")
+            if or == .fail {
+                self.componentsIDMapLock.signal()
+                self.sequentialAccessLock.signal()
+                fatalError("Attempted to unregister \(component.id), that isn't a registered component.")
+            } else {
+                #if DEBUG
+                self.loggerLock.wait()
+                self.logger.warning("Attempted to unregister \(component.id), that isn't a registered component. Ignoring")
+                self.loggerLock.signal()
+                #endif
+                
+                return
+            }
         }
                 
         self.componentsGraphLock.wait()

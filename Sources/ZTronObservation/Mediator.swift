@@ -9,7 +9,7 @@ public protocol Mediator: Sendable {
     func register(_: any Component, or: OnRegisterConflict)
     
     /// Use this function to checkout a component from the notification system, and notify the components of it as seen fit.
-    func unregister(_: any Component)
+    func unregister(_: any Component, or: OnUnregisterConflict)
     
     /// Use this function to perform the 1-to-many streaming of the notification from one component to others.
     func pushNotification(eventArgs: BroadcastArgs)
@@ -18,4 +18,9 @@ public protocol Mediator: Sendable {
 public enum OnRegisterConflict: Sendable {
     case ignore
     case replace
+}
+
+public enum OnUnregisterConflict: Sendable {
+    case ignore
+    case fail
 }
