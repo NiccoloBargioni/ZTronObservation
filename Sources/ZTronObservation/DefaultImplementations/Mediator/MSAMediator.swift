@@ -313,12 +313,6 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
                     fatalError("Component \(self.componentsGraph.vertices[edge.v]) is not a valid component.")
                 }
                 
-                #if DEBUG
-                self.loggerLock.wait()
-                self.logger.log(level: .debug, "ⓘ Sending notification \(sourceID) → \(componentToNotify.id)")
-                self.loggerLock.signal()
-                #endif
-
                 componentsToNotify.append((componentToNotify, dependency))
             }
         }
@@ -329,6 +323,11 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         self.scheduleMSAUpdateLock.signal()
 
         componentsToNotify.forEach { component, dependency in
+            #if DEBUG
+            self.loggerLock.wait()
+            self.logger.log(level: .debug, "ⓘ Will send notification \(sourceID) → \(component)")
+            self.loggerLock.signal()
+            #endif
             component.getDelegate()?.notify(args: MSAArgs(root: eventArgs.getSource(), from: dependency))
         }
         
