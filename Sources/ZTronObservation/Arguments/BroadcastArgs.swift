@@ -10,7 +10,7 @@ open class BroadcastArgs: @unchecked Sendable {
         self.source = source
     }
     
-    public final func getSource() -> any Component {
+    public func getSource() -> any Component {
         self.sourceLock.wait()
         
         defer {

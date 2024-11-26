@@ -323,12 +323,15 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         self.scheduleMSAUpdateLock.signal()
 
         componentsToNotify.forEach { component, dependency in
+            /*
+             */
             #if DEBUG
             self.loggerLock.wait()
-            self.logger.log(level: .debug, "ⓘ Will send notification \(sourceID) → \(component)")
+            self.logger.log(level: .debug, "ⓘ Will send notification \(sourceID) → \(sourceID != dependency.id ? "\(dependency.id) → " : "") \(component.id)")
             self.loggerLock.signal()
             #endif
-            component.getDelegate()?.notify(args: MSAArgs(root: eventArgs.getSource(), from: dependency))
+
+            component.getDelegate()?.notify(args: MSAArgs(from: dependency, payload: eventArgs))
         }
         
         self.sequentialAccessLock.signal()
