@@ -39,9 +39,10 @@ public protocol InteractionsManager: Sendable {
 }
 
 public extension InteractionsManager {
-    func pushNotification(eventArgs: BroadcastArgs) {
-        self.getMediator()?.pushNotification(eventArgs: eventArgs)
+    func pushNotification(eventArgs: BroadcastArgs, completion: (() -> Void)? = nil) {
+        self.getMediator()?.pushNotification(eventArgs: eventArgs, completion: completion)
     }
+    
     
     func detach(or: OnUnregisterConflict = .fail) {
         guard let owner = self.getOwner() else { return }

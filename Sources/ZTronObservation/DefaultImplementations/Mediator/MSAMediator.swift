@@ -256,7 +256,7 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
     /// - Note: `eventArgs.getSource()` must be a valid, registered component in the notification subsystem, otherwise `fatalError()` is raised.
     ///
     /// - Complexity: Time: O(E + V·log(V)), Space: O(E+V). Though in most cases time is O(V)
-    public func pushNotification(eventArgs: BroadcastArgs) {
+    public func pushNotification(eventArgs: BroadcastArgs, completion: (() -> Void)? = nil) {
         self.sequentialAccessLock.wait()
         let sourceID = eventArgs.getSource().id
         
@@ -333,6 +333,8 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
 
             component.getDelegate()?.notify(args: MSAArgs(from: dependency, payload: eventArgs))
         }
+        
+        completion?()
         
         self.sequentialAccessLock.signal()
     }
