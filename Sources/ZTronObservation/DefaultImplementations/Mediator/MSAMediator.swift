@@ -290,7 +290,7 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
                 if componentsGraph[edge.u] == sourceID {
                     if let dest = self.componentsIDMap[self.componentsGraph[edge.v]] {
                         componentsToNotify.append(
-                            (eventArgs.getSource(), dest)
+                            (dest, eventArgs.getSource())
                         )
                     }
                 }
