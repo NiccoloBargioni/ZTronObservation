@@ -24,7 +24,7 @@ public final class BroadcastMediator: Mediator, @unchecked Sendable {
     /// Broadcasts a change to all the listeners.
     ///
     /// - Complexity: **Time**: O(listeners.count), **Memory**: O(1)
-    public func pushNotification(eventArgs: BroadcastArgs, completion: (() -> Void)? = nil) {
+    public func pushNotification(eventArgs: BroadcastArgs, limitToNeighbours: Bool = false, completion: (() -> Void)? = nil) {
         let changedComponent = eventArgs.getSource()
         
         self.listenersLock.wait()

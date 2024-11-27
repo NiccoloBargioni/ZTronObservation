@@ -256,7 +256,7 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
     /// - Note: `eventArgs.getSource()` must be a valid, registered component in the notification subsystem, otherwise `fatalError()` is raised.
     ///
     /// - Complexity: Time: O(E + V·log(V)), Space: O(E+V). Though in most cases time is O(V)
-    public func pushNotification(eventArgs: BroadcastArgs, completion: (() -> Void)? = nil) {
+    public func pushNotification(eventArgs: BroadcastArgs, limitToNeighbours: Bool, completion: (() -> Void)? = nil) {
         self.sequentialAccessLock.wait()
         let sourceID = eventArgs.getSource().id
         
@@ -282,56 +282,71 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
             return
         }
         
-        self.componentsMSALock.wait()
-        self.scheduleMSAUpdateLock.wait()
-        self.updateMSAIfNeeded(of: eventArgs.getSource())
-
-        #if DEBUG
-        self.loggerLock.wait()
-        self.logger.log(level: .debug, "ⓘ Component \(sourceID) has MSA of size \(self.componentsMSA[sourceID]?.count ?? -1)")
-        self.loggerLock.signal()
-        #endif
-        
-        
         var componentsToNotify: [(any Component, any Component)] = .init()
-        
-        self.componentsMSA[sourceID]?.forEach { edge in
-            if edge.u >= self.componentsGraph.vertexCount {
-                self.scheduleMSAUpdate[sourceID] = true
-                return
-            } else {
-                guard let dependency = self.componentsIDMap[ self.componentsGraph.vertices[edge.u] ] else {
-                    self.componentsMSALock.signal()
-                    self.componentsIDMapLock.signal()
-                    self.componentsGraphLock.signal()
-                    fatalError("Component \(self.componentsGraph.vertices[edge.u]) is not a valid component.")
-                }
-                guard let componentToNotify = self.componentsIDMap[ self.componentsGraph.vertices[edge.v] ] else {
-                    self.componentsIDMapLock.signal()
-                    self.componentsGraphLock.signal()
-                    self.componentsMSALock.signal()
-                    fatalError("Component \(self.componentsGraph.vertices[edge.v]) is not a valid component.")
-                }
-                
-                componentsToNotify.append((componentToNotify, dependency))
-            }
-        }
-        
-        self.componentsMSALock.signal()
-        self.componentsIDMapLock.signal()
-        self.componentsGraphLock.signal()
-        self.scheduleMSAUpdateLock.signal()
 
-        componentsToNotify.forEach { component, dependency in
-            /*
-             */
+        if limitToNeighbours {
+            
+            componentsGraph.edgesForVertex(sourceID)?.forEach { edge in
+                if componentsGraph[edge.u] == sourceID {
+                    if let dest = self.componentsIDMap[self.componentsGraph[edge.v]] {
+                        componentsToNotify.append(
+                            (eventArgs.getSource(), dest)
+                        )
+                    }
+                }
+            }
+            
+            self.componentsIDMapLock.signal()
+            self.componentsGraphLock.signal()
+        } else {
+            self.componentsMSALock.wait()
+            self.scheduleMSAUpdateLock.wait()
+            self.updateMSAIfNeeded(of: eventArgs.getSource())
+
             #if DEBUG
             self.loggerLock.wait()
-            self.logger.log(level: .debug, "ⓘ Will send notification \(sourceID) → \(sourceID != dependency.id ? "\(dependency.id) → " : "") \(component.id)")
+            self.logger.log(level: .debug, "ⓘ Component \(sourceID) has MSA of size \(self.componentsMSA[sourceID]?.count ?? -1)")
             self.loggerLock.signal()
             #endif
+            
+            self.componentsMSA[sourceID]?.forEach { edge in
+                if edge.u >= self.componentsGraph.vertexCount {
+                    self.scheduleMSAUpdate[sourceID] = true
+                    return
+                } else {
+                    guard let dependency = self.componentsIDMap[ self.componentsGraph.vertices[edge.u] ] else {
+                        self.componentsMSALock.signal()
+                        self.componentsIDMapLock.signal()
+                        self.componentsGraphLock.signal()
+                        fatalError("Component \(self.componentsGraph.vertices[edge.u]) is not a valid component.")
+                    }
+                    guard let componentToNotify = self.componentsIDMap[ self.componentsGraph.vertices[edge.v] ] else {
+                        self.componentsIDMapLock.signal()
+                        self.componentsGraphLock.signal()
+                        self.componentsMSALock.signal()
+                        fatalError("Component \(self.componentsGraph.vertices[edge.v]) is not a valid component.")
+                    }
+                    
+                    componentsToNotify.append((componentToNotify, dependency))
+                }
+            }
+            
+            self.componentsMSALock.signal()
+            self.componentsIDMapLock.signal()
+            self.componentsGraphLock.signal()
+            self.scheduleMSAUpdateLock.signal()
 
-            component.getDelegate()?.notify(args: MSAArgs(from: dependency, payload: eventArgs))
+            componentsToNotify.forEach { component, dependency in
+                /*
+                 */
+                #if DEBUG
+                self.loggerLock.wait()
+                self.logger.log(level: .debug, "ⓘ Will send notification \(sourceID) → \(sourceID != dependency.id ? "\(dependency.id) → " : "") \(component.id)")
+                self.loggerLock.signal()
+                #endif
+
+                component.getDelegate()?.notify(args: MSAArgs(from: dependency, payload: eventArgs))
+            }
         }
         
         completion?()

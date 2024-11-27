@@ -39,8 +39,8 @@ public protocol InteractionsManager: Sendable {
 }
 
 public extension InteractionsManager {
-    func pushNotification(eventArgs: BroadcastArgs, completion: (() -> Void)? = nil) {
-        self.getMediator()?.pushNotification(eventArgs: eventArgs, completion: completion)
+    func pushNotification(eventArgs: BroadcastArgs, limitToNeighbours: Bool = false, completion: (() -> Void)? = nil) {
+        self.getMediator()?.pushNotification(eventArgs: eventArgs, limitToNeighbours: limitToNeighbours, completion: completion)
     }
     
     

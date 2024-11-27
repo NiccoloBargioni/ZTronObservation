@@ -12,7 +12,7 @@ public protocol Mediator: Sendable {
     func unregister(_: any Component, or: OnUnregisterConflict)
     
     /// Use this function to perform the 1-to-many streaming of the notification from one component to others.
-    func pushNotification(eventArgs: BroadcastArgs, completion: (() -> Void)?)
+    func pushNotification(eventArgs: BroadcastArgs, limitToNeighbours: Bool, completion: (() -> Void)?)
 }
 
 public enum OnRegisterConflict: Sendable {
