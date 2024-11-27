@@ -23,7 +23,7 @@ public protocol InteractionsManager: Sendable {
     
     
     /// Uses `mediator` to stream the notification to the other dependent components.
-    func pushNotification(eventArgs: BroadcastArgs, completion: (() -> Void)?)
+    func pushNotification(eventArgs: BroadcastArgs, limitToNeighbours: Bool, completion: (() -> Void)?)
     
     
     /// Use this method to detach `owner` from the notification system.
