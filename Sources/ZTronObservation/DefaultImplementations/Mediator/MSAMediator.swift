@@ -335,18 +335,18 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
             self.componentsIDMapLock.signal()
             self.componentsGraphLock.signal()
             self.scheduleMSAUpdateLock.signal()
+        }
+        
+        componentsToNotify.forEach { component, dependency in
+            /*
+             */
+            #if DEBUG
+            self.loggerLock.wait()
+            self.logger.log(level: .debug, "ⓘ Will send notification \(sourceID) → \(sourceID != dependency.id ? "\(dependency.id) → " : "") \(component.id)")
+            self.loggerLock.signal()
+            #endif
 
-            componentsToNotify.forEach { component, dependency in
-                /*
-                 */
-                #if DEBUG
-                self.loggerLock.wait()
-                self.logger.log(level: .debug, "ⓘ Will send notification \(sourceID) → \(sourceID != dependency.id ? "\(dependency.id) → " : "") \(component.id)")
-                self.loggerLock.signal()
-                #endif
-
-                component.getDelegate()?.notify(args: MSAArgs(from: dependency, payload: eventArgs))
-            }
+            component.getDelegate()?.notify(args: MSAArgs(from: dependency, payload: eventArgs))
         }
         
         completion?()
