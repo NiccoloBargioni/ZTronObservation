@@ -1,4 +1,5 @@
 {
+  "originHash" : "335e9d8b7877ea2f3bfa2482c81ce501f03adcd573847a89dc488fb2b6621ef6",
   "pins" : [
     {
       "identity" : "swiftgraph",
@@ -6,9 +7,9 @@
       "location" : "https://github.com/NickTheFreak97/SwiftGraph",
       "state" : {
         "branch" : "msa",
-        "revision" : "a00fc9e042d0afff473ef73ea0dc8cd80eca1b28"
+        "revision" : "615085465d81f7a7ff176f13029b19f873773409"
       }
     }
   ],
-  "version" : 2
+  "version" : 3
 }

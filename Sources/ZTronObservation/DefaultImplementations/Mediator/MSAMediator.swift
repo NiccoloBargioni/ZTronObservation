@@ -36,6 +36,8 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
     /// - Add the component ID to the components graph.
     /// - Invoking `peerDiscovered` on every other component in the graph.
     ///
+    /// - Parameter component: The component to add to the notification subsystem.
+    /// - Parameter or: Specifies how to handle attempted registration of a component when another with the same ID already exists.
     ///
     /// - Complexity: time: O(V)
     public func register(
@@ -252,6 +254,9 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
     /// If the MSA rooted in `eventArgs.getSource()` needs to be recomputed, its update its performed (including when a component sends its first notification).
     /// An update consists of invoking `notify(_:)` on the delegate of each component in some MSA.
     ///
+    /// - Parameter limitToNeighbours: If `true`, components that transitively depend on `eventArgs.getSource()` aren't notified, else, its whole MSA is notified.
+    /// - Parameter completion: A callback executed after all components were notified. If at least one component's `notify(_:)` executes async code, it's not guaranteed that this callbacks executes after all the notifications are handled.
+    ///
     /// - Note: No order of notification is guaranteed, not even topological.
     /// - Note: `eventArgs.getSource()` must be a valid, registered component in the notification subsystem, otherwise `fatalError()` is raised.
     ///
@@ -285,7 +290,6 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         var componentsToNotify: [(any Component, any Component)] = .init()
 
         if limitToNeighbours {
-            
             componentsGraph.edgesForVertex(sourceID)?.forEach { edge in
                 if componentsGraph[edge.u] == sourceID {
                     if let dest = self.componentsIDMap[self.componentsGraph[edge.v]] {
@@ -360,29 +364,35 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
     ///
     /// - Parameter asker: The component interested in receiving notifications.
     /// - Parameter to: The component that should send notifications to `asker`.
-    /// - Parameter priority: Use this parameter to specify the weight of the link `to → asker`.
-    /// In the greater scheme of things, design weights to favor some paths of notification (with lower total weight) over others.
+    /// - Parameter priority: Use this parameter to specify the weight of the link `to → asker`. In the greater scheme of things, design weights to favor some paths of notification (with lower total weight) over others
+    /// - Parameter or: In concurrent environment it's possible that very short-lived components exist.
+    /// A component might unregister before another component has a chance to complete its `signalInterest(_:,_:,_:)` call. Use this
+    /// parameter to disambiguate how to handle this scenario. Defaults to `.fail`.
     ///
-    /// - Also appends `asker` in the list of components that have an inbound edge toward `to`, for purposes of scheduling MSA updates.
+    /// - Returns: `true`, if was able to attach `to → asker`, `false` otherwise.
     ///
     /// - Note: This implementation makes self use of `markMSAForUpdates(_:)`.
-    ///
-    /// - Complexity: time: O(V), to recursively mark MSA of parents as needing update.
-    public func signalInterest(_ asker: any Component, to: any Component, priority: Float = 1.0) {
+    /// - Complexity: time: O(V + E), to recursively mark MSA of parents as needing update.
+    @discardableResult public func signalInterest(_ asker: any Component, to: any Component, priority: Float = 1.0, or: OnSignalInterestFail = .fail) -> Bool {
         self.sequentialAccessLock.wait()
         self.componentsIDMapLock.wait()
         guard let dest = self.componentsIDMap[ asker.id ]?.id,
               let origin = self.componentsIDMap[ to.id ]?.id else {
             self.componentsIDMapLock.signal()
             
-            fatalError("Either \(asker.id) or \(to.id) are not registered in the notification subsystem")
+            if or == .fail {
+                fatalError("Either \(asker.id) or \(to.id) are not registered in the notification subsystem")
+            } else {
+                self.sequentialAccessLock.signal()
+                return false
+            }
         }
         
         if origin == dest {
             self.loggerLock.wait()
             self.logger.error("⚠️ Attempting to attach \(origin) → \(dest), which is a self loop. This is not allowed.")
             self.loggerLock.signal()
-            return
+            return false
         }
         
         #if DEBUG
@@ -403,7 +413,7 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
                 self.componentsGraphLock.signal()
                 self.componentsIDMapLock.signal()
                 self.sequentialAccessLock.signal()
-                return
+                return false
             }
         }
             
@@ -416,17 +426,20 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         
         self.scheduleMSAUpdateLock.wait()
         self.markMSAForUpdates(from: dest)
-        self.componentsIDMapLock.signal()
         self.scheduleMSAUpdateLock.signal()
+
+        self.componentsIDMapLock.signal()
         self.sequentialAccessLock.signal()
+        
+        return true
     }
     
     /// Starting from a valid component in the graph, it marks such component for MSA updates, then it marks all the nodes that have
     /// an inbound edge toward it for updates as well, propagating upwards.
     ///
-    /// - Note: Needs testing when loops in the components graph exist.
+    /// - Parameter from: The ID of the components whose dependency subtree might have changed.
     ///
-    /// - Complexity: time: O(V), space: O(1)
+    /// - Complexity: Time: O(E + V·log(V)), Space: O(E+V)
     ///
     /// - componentsGraphLock
     /// - componentsIDMapLock
@@ -442,7 +455,7 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         self.loggerLock.signal()
         #endif
         
-        let reverseGraph = self.componentsGraph.reversed()
+        let reverseGraph = self.componentsGraph.reversed() // O(E)
         
         guard let reversedFrom = reverseGraph.indexOfVertex(from) else {
             #if DEBUG
@@ -468,19 +481,13 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         #if DEBUG
         self.loggerLock.signal()
         #endif
-                
-        /*
-        self.flatDependencyMap[from]?.forEach { parent in
-            if self.scheduleMSAUpdate[parent] == false { // An attempt to break possible loops
-                self.markMSAForUpdates(from: parent)
-            }
-        }
-         */
     }
     
     
     /// When an interaction manager completes the setup procedure, it should invoke this method to allow all the components that are interested in it to
     /// update themselves based on the consisted, ready for updates, ready state of the caller.
+    ///
+    /// - Complexity: Time: O(E + V·log(V)), Space: O(E+V)
     public final func componentDidConfigure(eventArgs: BroadcastArgs) {
         self.sequentialAccessLock.wait()
         self.componentsIDMapLock.wait()
@@ -531,7 +538,11 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
     }
     
     /// A function that converts the components graph in its DOT description, where an arrow componentA → componentB means that componentA sends notifications to componentB, or equivalently, componentB signalled insterest in componentA
+    ///
+    /// Locks the following semaphores:
     /// - componentsGraphLock
+    ///
+    /// - Complexity: O(V+E) in time, O(1) in space
     public func toDOT(_ graphName: String = "componentsGraph") -> String {
         var DOTTree = String("digraph \"\(graphName)\" {\n")
         
@@ -568,6 +579,9 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
     
     /// Uses the following locks:
     ///
+    /// - Complexity: Time: O(E + V·log(V)) if MSA of `component` needs update, O(V+E) otherwise, Space: O(E+V) if MSA of `component` needs update, O(1) otherwise.
+    ///
+    /// Locks the following semaphores:
     /// - componentsGraphLock
     /// - componentsIDMapLock
     /// - componentsMSALock
@@ -626,6 +640,8 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
     
     /// Updates the MSA of the specified component. The caller of this function should make sure to have locked the following semaphores:
     ///
+    /// - Complexity: Time: O(E + V·log(V)), Space: O(E+V)
+    ///
     /// - scheduleMSAUpdateLock
     /// - componentsIDMapLock
     /// - componentsGraphLock
@@ -659,6 +675,8 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
                 msaGraph.addEdge(from: self.componentsGraph[edge.u], to: self.componentsGraph[edge.v], weight: 1.0, directed: true)
             }
 
+            #if DEBUG
+            // Assert that the root of the computed MSA is `component` parameter.
             if msaGraph.vertices.count > 0 {
                 assert(msaGraph.isDAG == true)
                 assert(msaGraph.findTreeRoot() != nil)
@@ -676,6 +694,7 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
                 
                 assert(treeRootID == component.id)
             }
+            #endif
             
             self.scheduleMSAUpdate[component.id] = false
         }

@@ -24,3 +24,8 @@ public enum OnUnregisterConflict: Sendable {
     case ignore
     case fail
 }
+
+public enum OnSignalInterestFail: Sendable {
+    case ignore
+    case fail
+}
