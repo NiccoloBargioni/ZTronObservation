@@ -16,4 +16,17 @@ public extension Component {
     func pushNotification() {
         self.getDelegate()?.pushNotification(eventArgs: BroadcastArgs(source: self))
     }
+    
+    func setDelegate<T: InteractionsManager>(_ interactionsManager: (any InteractionsManager)?, ofType: T?) {
+        guard let interactionsManager = interactionsManager as? T else {
+            if interactionsManager == nil {
+                self.setDelegate(nil)
+                return
+            } else {
+                fatalError("Component \(self.id) expected an Interactions Manager of type \(String(describing: T.self)), but got \(String(describing: type(of: interactionsManager)))")
+            }
+        }
+        
+        self.setDelegate(interactionsManager)
+    }
 }
