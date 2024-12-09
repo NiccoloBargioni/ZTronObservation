@@ -471,7 +471,7 @@ final class ZTronFrameWorkTests: XCTestCase {
         
         let topbar = TopbarComponent()
         let topbarInteractions = TopbarInteractionsManager(owner: topbar, mediator: mediator)
-        topbar.delegate = topbarInteractions
+        topbar.setDelegate(topbarInteractions, ofType: MSAInteractionsManager.self)
         
         let gallery = GalleryComponent(initialGallery: "cosmic way")
         let galleryInteractions = GalleryInteractionsManager(owner: gallery, mediator: mediator)
@@ -481,6 +481,7 @@ final class ZTronFrameWorkTests: XCTestCase {
         
         topbar.delegate?.detach()
         gallery.delegate?.detach()
+        
     }
     
     func testTwoInterdependentComponents() throws {
