@@ -1,10 +1,10 @@
 import Foundation
 
-@propertyWrapper final class InteractionsManaging {
+@propertyWrapper public final class InteractionsManaging {
     var setupOr: OnRegisterConflict
     var detachOr: OnUnregisterConflict
     
-    var wrappedValue: (any MSAInteractionsManager)? {
+    public var wrappedValue: (any MSAInteractionsManager)? {
         didSet {
             guard let wrappedValue = self.wrappedValue else { return }
             wrappedValue.setup(or: self.setupOr)
@@ -16,7 +16,7 @@ import Foundation
         }
     }
 
-    init(wrappedValue: (any MSAInteractionsManager)?, setupOr: OnRegisterConflict = .ignore, detachOr: OnUnregisterConflict = .fail) {
+    public init(wrappedValue: (any MSAInteractionsManager)?, setupOr: OnRegisterConflict = .ignore, detachOr: OnUnregisterConflict = .fail) {
         self.wrappedValue = wrappedValue
         self.setupOr = setupOr
         self.detachOr = detachOr
