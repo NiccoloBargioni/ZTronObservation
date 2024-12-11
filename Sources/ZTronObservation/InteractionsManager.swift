@@ -15,7 +15,7 @@ public protocol InteractionsManager: Sendable {
     
     /// Use this method to do preliminary operations that are required to integrate `owner` in the notification subsystem, such as configuring oneself according
     /// to the current state of other components.
-    func setup()
+    func setup(or: OnRegisterConflict)
     
     
     /// Use this method to reset the part of state that depends on a component `owner` depends upon when it unregisters from the notification subsystem.
@@ -23,11 +23,11 @@ public protocol InteractionsManager: Sendable {
     
     
     /// Uses `mediator` to stream the notification to the other dependent components.
-    func pushNotification(eventArgs: BroadcastArgs)
+    func pushNotification(eventArgs: BroadcastArgs, limitToNeighbours: Bool, completion: (() -> Void)?)
     
     
     /// Use this method to detach `owner` from the notification system.
-    func detach()
+    func detach(or: OnUnregisterConflict)
     
     
     /// Give access to the owner of this manager
@@ -39,14 +39,15 @@ public protocol InteractionsManager: Sendable {
 }
 
 public extension InteractionsManager {
-    func pushNotification(eventArgs: BroadcastArgs) {
-        self.getMediator()?.pushNotification(eventArgs: eventArgs)
+    func pushNotification(eventArgs: BroadcastArgs, limitToNeighbours: Bool = false, completion: (() -> Void)? = nil) {
+        self.getMediator()?.pushNotification(eventArgs: eventArgs, limitToNeighbours: limitToNeighbours, completion: completion)
     }
     
-    func detach() {
+    
+    func detach(or: OnUnregisterConflict = .fail) {
         guard let owner = self.getOwner() else { return }
 
-        self.getMediator()?.unregister(owner)
+        self.getMediator()?.unregister(owner, or: or)
     }
 }
 
@@ -61,11 +62,11 @@ public protocol MSAInteractionsManager: InteractionsManager {
 
 
 public extension MSAInteractionsManager {
-    func setup() {
+    func setup(or: OnRegisterConflict = .replace) {
         guard let mediator = self.getMediator() as? MSAMediator,
               let owner = self.getOwner() else { fatalError() }
         
-        mediator.register(owner)
+        mediator.register(owner, or: or)
         mediator.componentDidConfigure(eventArgs: BroadcastArgs(source: owner))
     }
 }

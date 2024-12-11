@@ -72,7 +72,7 @@ fileprivate class TopbarComponent: Component {
         self.delegate = interactionsManager
         
         if let interactionsManager = interactionsManager {
-            interactionsManager.setup()
+            interactionsManager.setup(or: .ignore)
         }
     }
     
@@ -163,7 +163,7 @@ fileprivate class GalleryComponent: Component {
         self.delegate = interactionsManager
         
         if let interactionsManager = interactionsManager {
-            interactionsManager.setup()
+            interactionsManager.setup(or: .ignore)
         }
     }
 }

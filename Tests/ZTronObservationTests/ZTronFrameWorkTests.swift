@@ -24,7 +24,7 @@ fileprivate class TopbarComponent: Component {
     
         didSet {
             guard let delegate = self.delegate else { return }
-            delegate.setup()
+            delegate.setup(or: .ignore)
         }
     }
     
@@ -67,7 +67,7 @@ fileprivate class TopbarComponent: Component {
         self.delegate = interactionsManager
         
         if let interactionsManager = interactionsManager {
-            interactionsManager.setup()
+            interactionsManager.setup(or: .ignore)
         }
     }
 }
@@ -87,10 +87,10 @@ fileprivate final class TopbarInteractionsManager: InteractionsManager, @uncheck
         print("\(owner.id) received notification")
     }
     
-    func setup() {
+    func setup(or: OnRegisterConflict = .ignore) {
         guard let owner = self.owner else { return }
         print("Topbar will register")
-        self.mediator?.register(owner)
+        self.mediator?.register(owner, or: or)
     }
     
     func willCheckout(args: BroadcastArgs) {
@@ -119,7 +119,7 @@ fileprivate class GalleryComponent: Component {
     
         didSet {
             guard let delegate = self.delegate else { return }
-            delegate.setup()
+            delegate.setup(or: .ignore)
         }
     }
     
@@ -157,7 +157,7 @@ fileprivate class GalleryComponent: Component {
         self.delegate = interactionsManager
         
         if let interactionsManager = interactionsManager {
-            interactionsManager.setup()
+            interactionsManager.setup(or: .ignore)
         }
     }
     
@@ -264,10 +264,10 @@ fileprivate class GalleryInteractionsManager: InteractionsManager, @unchecked Se
         }
     }
     
-    func setup() {
+    func setup(or: OnRegisterConflict = .ignore) {
         guard let owner = self.owner else { return }
         print("\(owner.id) will register")
-        self.mediator?.register(owner)
+        self.mediator?.register(owner, or: or)
     }
     
     func willCheckout(args: ZTronObservation.BroadcastArgs) {
@@ -308,7 +308,10 @@ internal final class ComponentAInteractionsManager: MSAInteractionsManager, @unc
     }
     
     func notify(args: ZTronObservation.BroadcastArgs) {
+        guard let owner = self.owner else { return }
+        guard let mediator = self.mediator else { return }
         
+        print(mediator.MSAToDOT(for: args.getSource()))
     }
     
     func willCheckout(args: ZTronObservation.BroadcastArgs) {
@@ -329,7 +332,7 @@ internal final class TestComponentA: Component, @unchecked Sendable {
     private var delegate: (any InteractionsManager)? {
         didSet {
             guard let delegate = self.delegate else { return }
-            delegate.setup()
+            delegate.setup(or: .ignore)
         }
         
         willSet {
@@ -366,18 +369,14 @@ internal final class TestComponentA: Component, @unchecked Sendable {
     internal func hash(into hasher: inout Hasher) {
         hasher.combine(self.id)
     }
-    
-    internal func testNotify() {
-        self.delegate?.pushNotification(eventArgs: BroadcastArgs(source: self))
-    }
-    
+        
     deinit {
         self.delegate?.detach()
     }
     
 }
 
-// MARK: - TWO Components
+
 internal final class ComponentBInteractionsManager: MSAInteractionsManager, @unchecked Sendable {
     weak private var owner: TestComponentB?
     weak private var mediator: MSAMediator?
@@ -399,7 +398,9 @@ internal final class ComponentBInteractionsManager: MSAInteractionsManager, @unc
     }
     
     func notify(args: ZTronObservation.BroadcastArgs) {
+        guard let mediator = self.mediator else { return }
         
+        print(mediator.MSAToDOT(for: args.getSource()))
     }
     
     func willCheckout(args: ZTronObservation.BroadcastArgs) {
@@ -420,7 +421,7 @@ internal final class TestComponentB: Component, @unchecked Sendable {
     private var delegate: (any InteractionsManager)? {
         didSet {
             guard let delegate = self.delegate else { return }
-            delegate.setup()
+            delegate.setup(or: .replace)
         }
         
         willSet {
@@ -457,11 +458,7 @@ internal final class TestComponentB: Component, @unchecked Sendable {
     internal func hash(into hasher: inout Hasher) {
         hasher.combine(self.id)
     }
-    
-    internal func testNotify() {
-        self.delegate?.pushNotification(eventArgs: BroadcastArgs(source: self))
-    }
-    
+        
     deinit {
         self.delegate?.detach()
     }
@@ -474,7 +471,7 @@ final class ZTronFrameWorkTests: XCTestCase {
         
         let topbar = TopbarComponent()
         let topbarInteractions = TopbarInteractionsManager(owner: topbar, mediator: mediator)
-        topbar.delegate = topbarInteractions
+        topbar.setDelegate(topbarInteractions, ofType: MSAInteractionsManager.self)
         
         let gallery = GalleryComponent(initialGallery: "cosmic way")
         let galleryInteractions = GalleryInteractionsManager(owner: gallery, mediator: mediator)
@@ -484,6 +481,7 @@ final class ZTronFrameWorkTests: XCTestCase {
         
         topbar.delegate?.detach()
         gallery.delegate?.detach()
+        
     }
     
     func testTwoInterdependentComponents() throws {
@@ -494,7 +492,29 @@ final class ZTronFrameWorkTests: XCTestCase {
         componentA.setDelegate(ComponentAInteractionsManager(owner: componentA, mediator: mediator))
         componentB.setDelegate(ComponentBInteractionsManager(owner: componentB, mediator: mediator))
         
-        componentA.testNotify()
-        componentB.testNotify()
+        componentA.pushNotification()
+        componentB.pushNotification()
+        
+        componentA.pushNotification()
+        componentB.pushNotification()
+        
+        componentA.getDelegate()?.detach()
+        print(mediator.MSAToDOT(for: componentB))
+        componentB.getDelegate()?.detach()
+    }
+    
+    func testReplaceRegister() throws {
+        let mediator = MSAMediator()
+        let componentA = TestComponentA()
+        let componentB = TestComponentB()
+        
+        componentA.setDelegate(ComponentAInteractionsManager(owner: componentA, mediator: mediator))
+        componentA.getDelegate()?.setup(or: .replace)
+        
+        componentB.setDelegate(ComponentBInteractionsManager(owner: componentB, mediator: mediator))
+        componentB.getDelegate()?.setup(or: .ignore)
+        
+        let anyComponentA = componentA as any Component
+        assert(anyComponentA === componentA)
     }
 }

@@ -4,7 +4,7 @@ import Foundation
 /// It is recommended that `id` doesn't change between different instances of the same type, if it is required that only one
 /// component of the specified type can participate. In that case, it is appropriate to assign an ID that recalls the role of the component
 /// in the system. For instance a `TopbarComponent: Component` could be identified by a `topbar` string.
-public protocol Component: Identifiable, Hashable {
+public protocol Component: Identifiable, Hashable, AnyObject {
     var id: String { get }
 
     func getDelegate() -> (any InteractionsManager)?
@@ -15,5 +15,18 @@ public extension Component {
     /// Use this function to resolve state updates of components this component depends upon. Just use delegation as default behavior.
     func pushNotification() {
         self.getDelegate()?.pushNotification(eventArgs: BroadcastArgs(source: self))
+    }
+    
+    func setDelegate<T>(_ interactionsManager: (any InteractionsManager)?, ofType type: T.Type) {
+        guard (interactionsManager as? T?) != nil else {
+            if interactionsManager == nil {
+                self.setDelegate(nil)
+                return
+            } else {
+                fatalError("Component \(self.id) expected an Interactions Manager of type \(type)")
+            }
+        }
+        
+        self.setDelegate(interactionsManager)
     }
 }

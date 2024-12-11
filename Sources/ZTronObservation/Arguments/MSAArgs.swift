@@ -1,12 +1,17 @@
 import Foundation
 
-open class MSAArgs: BroadcastArgs {
+public final class MSAArgs: BroadcastArgs, @unchecked Sendable {
+    private var source: any Component {
+        return payload.getSource()
+    }
     private let from: any Component
     private let fromLock = DispatchSemaphore(value: 1)
+    private let payload: BroadcastArgs
 
-    public init(root: any Component, from: any Component) {
+    public init(from: any Component, payload: BroadcastArgs) {
+        self.payload = payload
         self.from = from
-        super.init(source: root)
+        super.init(source: payload.getSource())
     }
     
     public func getFrom() -> any Component {
@@ -20,6 +25,14 @@ open class MSAArgs: BroadcastArgs {
     }
     
     public func getRoot() -> any Component {
-        return super.getSource()
+        return super.getSource() // Already locked
+    }
+    
+    override public func getSource() -> any Component {
+        return self.getRoot()
+    }
+    
+    public func getPayload() -> BroadcastArgs {
+        return self.payload
     }
 }
