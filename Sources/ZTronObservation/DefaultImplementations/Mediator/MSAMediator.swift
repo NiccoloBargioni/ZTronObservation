@@ -385,8 +385,11 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
             self.componentsIDMapLock.signal()
             
             if or == .fail {
-                fatalError("❌ Either \(asker.id) or \(to.id) are not registered in the notification subsystem")
+                fatalError("❌ Either \(asker.id) or \(to.id) are not registered in the notification subsystem in \(#function)")
             } else {
+                self.loggerLock.wait()
+                self.logger.warning("⚠️ Attempting to attach \(to.id) → \(asker.id), but at least one of those is not registered in the notification subsystem. Ignoring.")
+                self.loggerLock.signal()
                 self.sequentialAccessLock.signal()
                 return false
             }
