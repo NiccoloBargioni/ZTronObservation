@@ -210,6 +210,15 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         }
         
         self.componentsMSALock.signal()
+        self.componentsGraphLock.signal()
+        self.sequentialAccessLock.signal()
+        
+        componentsToCheckoutTo?.forEach { reachableComponent in
+            reachableComponent.getDelegate()?.willCheckout(args: BroadcastArgs(source: component))
+        }
+
+        self.componentsGraphLock.wait()
+        self.sequentialAccessLock.wait()
                 
         self.scheduleMSAUpdateLock.wait()
         self.markMSAForUpdates(from: component.id)
@@ -248,9 +257,6 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
     
         self.sequentialAccessLock.signal()
 
-        componentsToCheckoutTo?.forEach { reachableComponent in
-            reachableComponent.getDelegate()?.willCheckout(args: BroadcastArgs(source: component))
-        }
     }
     
     
