@@ -65,7 +65,13 @@ var delegate: (any InteractionsManager)? {
     }
 ```
 
-Unfortunately, there's no way to currently set this as default behavior, therefore the user of this subsystem will manually have to type or copy/paste this into every new `Component`.
+A new shortcut for this was later introduced, and now the same behavior can be achieved as follows:
+
+```
+@InteractionsManaging weak private var delegate: (any InteractionsManager)? = nil
+```
+
+Optionally, you can specify the conflict resolution strategy on setup and detach as follows: `@InteractionsManaging(setupOr: .ignore, detachOr: .fail) weak private var // and so on`
 
 ## Minimum Cost Spanning Arborescence 
 
