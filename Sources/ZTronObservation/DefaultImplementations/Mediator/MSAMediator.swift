@@ -238,7 +238,8 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         self.loggerLock.wait()
         self.logger.log(level: .debug, "✅ Component \(component.id) unregistered")
         self.loggerLock.signal()
-        
+        #endif
+
         self.componentsGraphLock.wait()
         self.componentsGraph.removeVertex(component.id)
 
@@ -253,7 +254,6 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         self.scheduleMSAUpdateLock.signal()
         self.componentsMSALock.signal()
         self.componentsGraphLock.signal()
-        #endif
     
         self.sequentialAccessLock.signal()
 
