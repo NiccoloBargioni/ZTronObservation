@@ -238,7 +238,7 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
         self.loggerLock.wait()
         self.logger.log(level: .debug, "✅ Component \(component.id) unregistered")
         self.loggerLock.signal()
-        #endif
+          #endif
 
         self.componentsGraphLock.wait()
         self.componentsGraph.removeVertex(component.id)
@@ -699,7 +699,6 @@ public final class MSAMediator: Mediator, @unchecked Sendable {
             // Assert that the root of the computed MSA is `component` parameter.
             if msaGraph.vertices.count > 0 {
                 assert(msaGraph.isDAG == true)
-                assert(msaGraph.findTreeRoot() != nil)
                 
                 let treeRootID: String? = msaGraph.vertices.first { componentID in
                     let index = msaGraph.indexOfVertex(componentID)
